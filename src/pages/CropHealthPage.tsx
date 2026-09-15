@@ -7,6 +7,8 @@ import { Modal } from '../components/common/Modal';
 import { useFarm } from '../context/FarmContext';
 import { api } from '../services/api';
 import { RealSatelliteMap } from '../components/satellite/RealSatelliteMap';
+import { MapSearchBar } from '../components/satellite/MapSearchBar';
+import { GeocodingResult } from '../services/geocodingService';
 import {
   Satellite,
   Sparkles,
@@ -20,6 +22,7 @@ import {
   Activity,
   AlertTriangle,
   Eye,
+  Compass,
 } from 'lucide-react';
 
 interface SatelliteDataState {
@@ -48,7 +51,7 @@ interface SatelliteDataState {
   };
 }
 
-// Key agricultural hubs across India for easy scouting
+// Key agricultural hubs across India for quick scouting
 const PRESET_FARM_ZONES = [
   { name: 'Nagpur (Central MH)', crop: 'Soybean / Cotton', lat: 21.3855, lon: 78.9189 },
   { name: 'Ludhiana (Punjab)', crop: 'Wheat / Paddy', lat: 30.901, lon: 75.8573 },
@@ -62,19 +65,32 @@ export const CropHealthPage: React.FC = () => {
   const [recommendationModal, setRecommendationModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Live coordinate state (defaults to farm or Nagpur hub)
-  const [coords, setCoords] = useState<{
+  // Active Map View Coordinates (Where the camera & satellite analysis is currently focused)
+  const [activeCoords, setActiveCoords] = useState<{
     lat: number;
     lon: number;
     label: string;
-    isLiveGps: boolean;
   }>({
     lat: farm.location?.latitude || 21.3855,
     lon: farm.location?.longitude || 78.9189,
     label: farm.name || 'Primary Farm',
-    isLiveGps: false,
   });
 
+  // Strict Physical Device GPS (Preserved independently and never overwritten by global searches)
+  const [userGpsLocation, setUserGpsLocation] = useState<{
+    lat: number;
+    lon: number;
+  } | null>(null);
+
+  // Searched Location State (Placed marker from global search)
+  const [searchedLocation, setSearchedLocation] = useState<{
+    lat: number;
+    lon: number;
+    displayName: string;
+    placeName?: string;
+  } | null>(null);
+
+  const [zoomLevel, setZoomLevel] = useState<number>(15);
   const [isLocating, setIsLocating] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
 
@@ -131,8 +147,8 @@ export const CropHealthPage: React.FC = () => {
   const loadSatelliteData = useCallback(async (targetLat?: number, targetLon?: number) => {
     setRefreshing(true);
     try {
-      const lat = targetLat !== undefined ? targetLat : coords.lat;
-      const lon = targetLon !== undefined ? targetLon : coords.lon;
+      const lat = targetLat !== undefined ? targetLat : activeCoords.lat;
+      const lon = targetLon !== undefined ? targetLon : activeCoords.lon;
       const res = await api.getLiveSatellite(lat, lon, farm.id);
 
       if (res.success && res.data) {
@@ -143,14 +159,14 @@ export const CropHealthPage: React.FC = () => {
     } finally {
       setRefreshing(false);
     }
-  }, [coords.lat, coords.lon, farm.id]);
+  }, [activeCoords.lat, activeCoords.lon, farm.id]);
 
   useEffect(() => {
-    loadSatelliteData(coords.lat, coords.lon);
-  }, [coords.lat, coords.lon, loadSatelliteData]);
+    loadSatelliteData(activeCoords.lat, activeCoords.lon);
+  }, [activeCoords.lat, activeCoords.lon, loadSatelliteData]);
 
-  // Handler to request farmer's live GPS coordinates via browser Geolocation API
-  const handleUseLiveLocation = () => {
+  // Handler to acquire device GPS coordinates via browser Geolocation API
+  const handleAcquireGps = () => {
     if (!navigator.geolocation) {
       setGpsError('Geolocation is not supported by your browser.');
       return;
@@ -162,12 +178,20 @@ export const CropHealthPage: React.FC = () => {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        setCoords({
+
+        // 1. Store strict physical GPS location
+        setUserGpsLocation({ lat: latitude, lon: longitude });
+
+        // 2. Center map onto GPS location
+        setActiveCoords({
           lat: latitude,
           lon: longitude,
           label: `Live GPS (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`,
-          isLiveGps: true,
         });
+
+        // 3. Reset searched location marker when returning to GPS
+        setSearchedLocation(null);
+        setZoomLevel(16);
         setIsLocating(false);
       },
       (error) => {
@@ -175,7 +199,7 @@ export const CropHealthPage: React.FC = () => {
         setGpsError(
           error.code === 1
             ? 'GPS access permission denied. Please allow location access in your browser.'
-            : 'Unable to acquire satellite GPS fix. Please select a preset farm zone below.'
+            : 'Unable to acquire satellite GPS fix. Please select a preset farm zone or search above.'
         );
         setIsLocating(false);
       },
@@ -187,13 +211,61 @@ export const CropHealthPage: React.FC = () => {
     );
   };
 
-  // Handler when user clicks on map to inspect a specific spot
+  // "My Location" action: Returns view to user's real GPS position without losing GPS state
+  const handleMyLocationClick = () => {
+    if (userGpsLocation) {
+      setActiveCoords({
+        lat: userGpsLocation.lat,
+        lon: userGpsLocation.lon,
+        label: `My Live GPS (${userGpsLocation.lat.toFixed(4)}, ${userGpsLocation.lon.toFixed(4)})`,
+      });
+      setSearchedLocation(null);
+      setZoomLevel(16);
+    } else {
+      handleAcquireGps();
+    }
+  };
+
+  // Handler when user selects an autocomplete location or enters coordinates in Search Bar
+  const handleSelectSearchedLocation = (result: GeocodingResult) => {
+    // 1. Move camera to searched location
+    setActiveCoords({
+      lat: result.lat,
+      lon: result.lon,
+      label: result.placeName || result.displayName.split(',')[0],
+    });
+
+    // 2. Set distinct searched location marker (User GPS is untouched!)
+    setSearchedLocation({
+      lat: result.lat,
+      lon: result.lon,
+      displayName: result.displayName,
+      placeName: result.placeName,
+    });
+
+    // 3. Set intelligent zoom level
+    if (result.type === 'city') {
+      setZoomLevel(13);
+    } else if (result.type === 'region') {
+      setZoomLevel(9);
+    } else {
+      setZoomLevel(16);
+    }
+  };
+
+  // Handler when user clicks anywhere on map canvas to scout
   const handleMapClick = (lat: number, lon: number) => {
-    setCoords({
+    setActiveCoords({
       lat,
       lon,
       label: `Pinned Point (${lat.toFixed(4)}, ${lon.toFixed(4)})`,
-      isLiveGps: false,
+    });
+
+    setSearchedLocation({
+      lat,
+      lon,
+      displayName: `Pinned Field Coordinates: ${lat.toFixed(5)}°N, ${lon.toFixed(5)}°E`,
+      placeName: `Scouted Point`,
     });
   };
 
@@ -225,31 +297,37 @@ export const CropHealthPage: React.FC = () => {
               <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
                 Crop Health (Live Satellite)
               </h1>
-              {coords.isLiveGps && (
+              {userGpsLocation && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                  Live GPS
+                  GPS Active
                 </span>
               )}
             </div>
             <p className="text-xs text-gray-500">
-              ArcGIS High-Res Orbit Tiles & Sentinel-2 Multispectral monitoring for {farm.name} ({coords.lat.toFixed(4)}°N, {coords.lon.toFixed(4)}°E)
+              ArcGIS High-Res Orbit Tiles & Sentinel-2 Multispectral monitoring ({activeCoords.lat.toFixed(4)}°N, {activeCoords.lon.toFixed(4)}°E)
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            {/* Live GPS Button */}
+            {/* My Location GPS Button */}
             <button
-              onClick={handleUseLiveLocation}
+              onClick={handleMyLocationClick}
               disabled={isLocating}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                coords.isLiveGps
+                userGpsLocation && activeCoords.lat === userGpsLocation.lat && activeCoords.lon === userGpsLocation.lon
                   ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20'
                   : 'bg-krishi-700 hover:bg-krishi-800 text-white shadow-krishi-700/20'
               }`}
             >
               <Navigation className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : ''}`} />
-              <span>{isLocating ? 'Acquiring GPS...' : coords.isLiveGps ? '📍 Live GPS Active' : '📍 Use Live GPS'}</span>
+              <span>
+                {isLocating
+                  ? 'Acquiring GPS...'
+                  : userGpsLocation && activeCoords.lat === userGpsLocation.lat && activeCoords.lon === userGpsLocation.lon
+                  ? '📍 My GPS Centered'
+                  : '📍 My Location'}
+              </span>
             </button>
 
             {/* Timeframe selector */}
@@ -293,12 +371,30 @@ export const CropHealthPage: React.FC = () => {
         </header>
 
         <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
-          {/* Geolocation Notice / Preset Agricultural Hubs */}
+          {/* Dual Location Context Banner: Shows both Live GPS and Searched Location without confusion */}
+          {userGpsLocation && searchedLocation && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 px-4 py-2.5 bg-blue-50/90 border border-blue-200 rounded-2xl text-xs text-blue-950 shadow-xs">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping shrink-0"></span>
+                <span>
+                  <strong>Your Live GPS is in Pune/Area ({userGpsLocation.lat.toFixed(4)}, {userGpsLocation.lon.toFixed(4)})</strong> — Currently viewing searched place: <strong>{searchedLocation.placeName || 'Searched Location'}</strong>
+                </span>
+              </div>
+              <button
+                onClick={handleMyLocationClick}
+                className="inline-flex items-center gap-1 text-xs font-bold text-blue-800 hover:text-blue-950 underline shrink-0"
+              >
+                <Compass className="w-3.5 h-3.5" /> Return to My GPS Location
+              </button>
+            </div>
+          )}
+
+          {/* Agricultural Hub Quick-Picks */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-white rounded-2xl border border-earth-200 text-xs shadow-xs">
             <div className="flex items-center gap-2 text-gray-700 font-medium">
               <MapPin className="w-4 h-4 text-krishi-600 shrink-0" />
               <span>
-                Active Target: <strong className="text-gray-900">{coords.label}</strong>
+                Active Target: <strong className="text-gray-900">{activeCoords.label}</strong>
               </span>
             </div>
 
@@ -307,16 +403,17 @@ export const CropHealthPage: React.FC = () => {
               {PRESET_FARM_ZONES.map((zone) => (
                 <button
                   key={zone.name}
-                  onClick={() =>
-                    setCoords({
+                  onClick={() => {
+                    setActiveCoords({
                       lat: zone.lat,
                       lon: zone.lon,
                       label: `${zone.name} (${zone.crop})`,
-                      isLiveGps: false,
-                    })
-                  }
+                    });
+                    setSearchedLocation(null);
+                    setZoomLevel(15);
+                  }}
                   className={`px-2 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
-                    coords.lat === zone.lat && coords.lon === zone.lon
+                    activeCoords.lat === zone.lat && activeCoords.lon === zone.lon
                       ? 'bg-krishi-700 text-white'
                       : 'bg-earth-100 text-gray-700 hover:bg-earth-200'
                   }`}
@@ -335,13 +432,24 @@ export const CropHealthPage: React.FC = () => {
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Left: Interactive Real Satellite Map Canvas */}
+            {/* Left: Interactive Real Satellite Map Canvas & Search Bar */}
             <div className="lg:col-span-7 space-y-4">
-              <Card className="p-4 sm:p-5">
+              <Card className="p-4 sm:p-5 relative">
+                {/* Modern Global Search Bar */}
+                <div className="mb-3">
+                  <MapSearchBar
+                    onSelectLocation={handleSelectSearchedLocation}
+                    onMyLocationClick={handleMyLocationClick}
+                    isLocatingGps={isLocating}
+                    hasLiveGps={!!userGpsLocation}
+                    activeLocationName={activeCoords.label}
+                  />
+                </div>
+
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                   <div className="flex items-center gap-2 text-xs font-bold text-gray-700">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-                    <span>Live Space Orbit Satellite Map (Click to scout any farm)</span>
+                    <span>Space Satellite Radar (Click to scout any field)</span>
                   </div>
                   <span className="text-[11px] font-mono text-gray-500">
                     {satelliteData.lastUpdated}
@@ -388,13 +496,16 @@ export const CropHealthPage: React.FC = () => {
                 </div>
 
                 {/* Real Interactive Leaflet Satellite Container */}
-                <div className="relative rounded-2xl overflow-hidden border-2 border-earth-300 shadow-inner h-84 sm:h-[420px] bg-gray-900">
+                <div className="relative rounded-2xl overflow-hidden border-2 border-earth-300 shadow-inner h-84 sm:h-[440px] bg-gray-900">
                   <RealSatelliteMap
-                    latitude={coords.lat}
-                    longitude={coords.lon}
+                    latitude={activeCoords.lat}
+                    longitude={activeCoords.lon}
+                    userGpsLocation={userGpsLocation}
+                    searchedLocation={searchedLocation}
                     fieldBoundary={satelliteData.fieldBoundary}
                     layerMode={layerMode}
                     ndviScore={satelliteData.ndviScore}
+                    zoomLevel={zoomLevel}
                     onMapClick={handleMapClick}
                     cropName={farm.crop?.name || 'Farm Field'}
                   />
@@ -409,7 +520,7 @@ export const CropHealthPage: React.FC = () => {
                 {/* Map Footer Info */}
                 <div className="mt-3 flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-gray-500 pt-2 border-t border-earth-100 gap-1">
                   <span>
-                    Lat: <strong className="text-gray-700">{coords.lat.toFixed(5)}°N</strong> • Lon: <strong className="text-gray-700">{coords.lon.toFixed(5)}°E</strong>
+                    Camera Lat: <strong className="text-gray-700">{activeCoords.lat.toFixed(5)}°N</strong> • Lon: <strong className="text-gray-700">{activeCoords.lon.toFixed(5)}°E</strong>
                   </span>
                   <span>Sensor: {satelliteData.satelliteProvider}</span>
                 </div>

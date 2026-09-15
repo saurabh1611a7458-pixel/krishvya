@@ -11,6 +11,7 @@ import { adminRoutes } from './routes/adminRoutes.js';
 import { aiRoutes } from './routes/aiRoutes.js';
 import { weatherRoutes, satelliteRoutes } from './routes/weatherRoutes.js';
 import { tankRoutes } from './routes/tankRoutes.js';
+import { geocodingRoutes } from './routes/geocodingRoutes.js';
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -47,6 +48,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/satellite', satelliteRoutes);
 app.use('/api/tank', tankRoutes);
+app.use('/api/geocoding', geocodingRoutes);
 // Error handling middleware
 app.use((err, _req, res, _next) => {
     console.error('[KRISHVYA API ERROR]', err);
