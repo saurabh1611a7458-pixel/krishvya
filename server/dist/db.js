@@ -13,20 +13,20 @@ export async function seedInitialData() {
         // 1. Create Farmer User
         const farmer = await prisma.user.create({
             data: {
-                name: 'Ramesh Singh',
+                name: 'Saurabh Singh',
                 phone: '+91 98765 43210',
-                email: 'ramesh.singh@krishvya.in',
+                email: 'saurabh.singh@krishvya.in',
                 passwordHash: defaultPasswordHash,
                 role: 'FARMER',
                 preferredLanguage: 'ENGLISH',
                 farmerProfile: {
                     create: {
-                        village: 'Saoner',
-                        district: 'Nagpur',
+                        village: 'Haveli',
+                        district: 'Pune',
                         state: 'Maharashtra',
-                        pincode: '441107',
-                        totalLandAcres: 2.5,
-                        experienceYears: 14,
+                        pincode: '411001',
+                        totalLandAcres: 8.3,
+                        experienceYears: 12,
                         voiceAssistantEnabled: true,
                         smsNotifications: true,
                     },
@@ -47,24 +47,24 @@ export async function seedInitialData() {
         // 3. Create Farm
         const farm = await prisma.farm.create({
             data: {
-                name: 'Ramesh Shwet Farm',
+                name: 'Farm A (Pune Parcel)',
                 ownerId: farmer.id,
-                address: 'Saoner, Nagpur District',
-                district: 'Nagpur',
+                address: 'Haveli, Pune, Maharashtra',
+                district: 'Pune',
                 state: 'Maharashtra',
-                latitude: 21.3855,
-                longitude: 78.9189,
-                size: 2.5,
+                latitude: 18.5204,
+                longitude: 73.8567,
+                size: 3.5,
                 sizeUnit: 'acres',
-                farmHealthScore: 84,
+                farmHealthScore: 88,
                 irrigationType: 'Drip',
                 crop: {
                     create: {
-                        name: 'Soybean',
-                        variety: 'JS-335 Gold',
-                        stage: 'FLOWERING',
-                        sowingDate: new Date('2024-06-15'),
-                        expectedHarvestDate: new Date('2024-10-20'),
+                        name: 'Sugarcane',
+                        variety: 'Co-86032',
+                        stage: 'GRAND_GROWTH',
+                        sowingDate: new Date('2024-03-10'),
+                        expectedHarvestDate: new Date('2025-02-15'),
                     },
                 },
                 soil: {

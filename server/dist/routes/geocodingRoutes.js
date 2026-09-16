@@ -116,3 +116,50 @@ geocodingRoutes.get('/search', async (req, res) => {
         });
     }
 });
+/**
+ * GET /api/geocoding/reverse?lat=latitude&lon=longitude
+ * Reverse geocoding to resolve address, district, state from coordinates
+ */
+geocodingRoutes.get('/reverse', async (req, res) => {
+    try {
+        const lat = parseFloat(req.query.lat);
+        const lon = parseFloat(req.query.lon);
+        if (isNaN(lat) || isNaN(lon)) {
+            return res.status(400).json({ success: false, message: 'Invalid coordinates' });
+        }
+        const cacheKey = `rev_${lat.toFixed(4)}_${lon.toFixed(4)}`;
+        const cached = cache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+            return res.json({ success: true, data: cached.data[0] });
+        }
+        const osmUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1&accept-language=en`;
+        const response = await fetch(osmUrl, {
+            headers: {
+                'User-Agent': 'KRISHVYA-Smart-Farming-App/1.0',
+            },
+        });
+        if (!response.ok) {
+            return res.status(response.status).json({ success: false, message: 'OSM reverse geocoding failed' });
+        }
+        const item = (await response.json());
+        const addr = item.address || {};
+        const district = addr.county || addr.district || addr.state_district || addr.city || '';
+        const state = addr.state || '';
+        const village = addr.village || addr.hamlet || addr.town || addr.suburb || '';
+        const placeName = village || district || item.name || item.display_name?.split(',')?.[0] || 'Selected Location';
+        const result = {
+            displayName: item.display_name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+            placeName,
+            district,
+            state,
+            village,
+            lat,
+            lon,
+        };
+        cache.set(cacheKey, { data: [result], timestamp: Date.now() });
+        return res.json({ success: true, data: result });
+    }
+    catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
+    }
+});

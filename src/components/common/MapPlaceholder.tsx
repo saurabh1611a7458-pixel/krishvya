@@ -7,6 +7,8 @@ interface MapPlaceholderProps {
   interactive?: boolean;
   onLocationSelect?: (lat: number, lng: number, address: string) => void;
   className?: string;
+  lat?: number;
+  lon?: number;
 }
 
 export const MapPlaceholder: React.FC<MapPlaceholderProps> = ({
@@ -15,6 +17,8 @@ export const MapPlaceholder: React.FC<MapPlaceholderProps> = ({
   interactive = false,
   onLocationSelect,
   className = '',
+  lat,
+  lon,
 }) => {
   const [pinPos, setPinPos] = useState({ x: 50, y: 48 });
   const [mapType, setMapType] = useState<'satellite' | 'terrain'>('satellite');
@@ -26,9 +30,12 @@ export const MapPlaceholder: React.FC<MapPlaceholderProps> = ({
     const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
     setPinPos({ x, y });
     if (onLocationSelect) {
-      onLocationSelect(21.3855 + (y - 50) * 0.001, 78.9189 + (x - 50) * 0.001, locationName);
+      const baseLat = typeof lat === 'number' ? lat : 0;
+      const baseLon = typeof lon === 'number' ? lon : 0;
+      onLocationSelect(baseLat + (y - 50) * 0.001, baseLon + (x - 50) * 0.001, locationName);
     }
   };
+
 
   return (
     <div

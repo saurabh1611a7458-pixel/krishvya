@@ -13,7 +13,6 @@ import {
   CalendarDays,
   SlidersHorizontal,
   Bell,
-  History,
   FileText,
   Globe2,
   User,
@@ -24,25 +23,41 @@ import { UserButton } from '@clerk/clerk-react';
 import { useFarm } from '../../context/FarmContext';
 import { LanguageSelector } from './LanguageSelector';
 
-export const navItems = [
-  { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { name: 'My Farm', path: '/farm', icon: Trees },
-  { name: 'Crop Health', path: '/crop-health', icon: Satellite },
-  { name: 'Weather', path: '/weather', icon: CloudSun },
-  { name: 'Soil Health', path: '/soil', icon: Layers },
-  { name: 'AI Advisor', path: '/ai-advisor', icon: Bot },
-  { name: 'Disease Doctor', path: '/disease', icon: Stethoscope },
-  { name: 'Tank Dosing & Mix', path: '/tank-calculator', icon: Pipette },
-  { name: 'Plant Scanner', path: '/plant-scanner', icon: ScanLine },
-  { name: 'Regenerative', path: '/regenerative', icon: Leaf },
-  { name: 'Crop Planner', path: '/crop-planner', icon: CalendarDays },
-  { name: 'What-if', path: '/what-if', icon: SlidersHorizontal },
-  { name: 'Alerts', path: '/alerts', icon: Bell },
-  { name: 'History', path: '/history', icon: History },
-  { name: 'Reports', path: '/reports', icon: FileText },
-  { name: 'BRICS Hub', path: '/brics', icon: Globe2 },
-  { name: 'Profile', path: '/profile', icon: User },
+export const navSections = [
+  {
+    title: 'MY FARM',
+    items: [
+      { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+      { name: 'My Farm', path: '/farm', icon: Trees },
+      { name: 'Crop Health', path: '/crop-health', icon: Satellite },
+      { name: 'Weather', path: '/weather', icon: CloudSun },
+      { name: 'Soil Health', path: '/soil', icon: Layers },
+    ],
+  },
+  {
+    title: 'AI TOOLS',
+    items: [
+      { name: 'AI Advisor', path: '/ai-advisor', icon: Bot },
+      { name: 'Disease Doctor', path: '/disease', icon: Stethoscope },
+      { name: 'Plant Scanner', path: '/plant-scanner', icon: ScanLine },
+      { name: 'Crop Planner', path: '/crop-planner', icon: CalendarDays },
+      { name: 'What-if', path: '/what-if', icon: SlidersHorizontal },
+    ],
+  },
+  {
+    title: 'MORE',
+    items: [
+      { name: 'Tank Dosing', path: '/tank-calculator', icon: Pipette },
+      { name: 'Regenerative', path: '/regenerative', icon: Leaf },
+      { name: 'Alerts', path: '/alerts', icon: Bell },
+      { name: 'Reports', path: '/reports', icon: FileText },
+      { name: 'BRICS Hub', path: '/brics', icon: Globe2 },
+      { name: 'Profile', path: '/profile', icon: User },
+    ],
+  },
 ];
+
+export const navItems = navSections.flatMap((s) => s.items);
 
 export const Sidebar: React.FC = () => {
   const { user, farm } = useFarm();
@@ -68,40 +83,47 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Language Quick Switcher */}
-      <div className="px-4 py-2.5 bg-earth-50/70 border-b border-earth-100 flex items-center justify-between">
-        <span className="text-xs font-medium text-gray-500">Language / भाषा:</span>
+      <div className="px-4 py-2 bg-earth-50/70 border-b border-earth-100 flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-gray-500">Language:</span>
         <LanguageSelector compact />
       </div>
 
-      {/* Navigation List */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1 no-scrollbar">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  isActive
-                    ? 'bg-krishi-700 text-white shadow-sm font-semibold'
-                    : 'text-gray-600 hover:bg-earth-100 hover:text-gray-900'
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <Icon
-                    className={`w-4 h-4 flex-shrink-0 ${
-                      isActive ? 'text-white' : 'text-gray-500'
-                    }`}
-                  />
-                  <span className="truncate">{item.name}</span>
-                </>
-              )}
-            </NavLink>
-          );
-        })}
+      {/* Grouped Navigation List */}
+      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-4 no-scrollbar">
+        {navSections.map((section) => (
+          <div key={section.title} className="space-y-1">
+            <h4 className="px-3.5 pt-1 text-[10px] font-extrabold uppercase tracking-wider text-gray-400">
+              {section.title}
+            </h4>
+            {section.items.map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                      isActive
+                        ? 'bg-krishi-700 text-white shadow-sm'
+                        : 'text-gray-600 hover:bg-earth-100 hover:text-gray-900'
+                    }`
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Icon
+                        className={`w-4 h-4 flex-shrink-0 ${
+                          isActive ? 'text-white' : 'text-gray-500'
+                        }`}
+                      />
+                      <span className="truncate">{item.name}</span>
+                    </>
+                  )}
+                </NavLink>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       {/* Farm Quick Badge & Farmer User profile */}

@@ -7,7 +7,6 @@ import { Modal } from '../components/common/Modal';
 import { useFarm } from '../context/FarmContext';
 import { api } from '../services/api';
 import { RealSatelliteMap } from '../components/satellite/RealSatelliteMap';
-import { MapSearchBar } from '../components/satellite/MapSearchBar';
 import { GeocodingResult } from '../services/geocodingService';
 import {
   Satellite,
@@ -53,7 +52,8 @@ interface SatelliteDataState {
 
 // Key agricultural hubs across India for quick scouting
 const PRESET_FARM_ZONES = [
-  { name: 'Nagpur (Central MH)', crop: 'Soybean / Cotton', lat: 21.3855, lon: 78.9189 },
+  { name: 'Nagpur (Central MH)', crop: 'Orange / Cotton', lat: 21.1458, lon: 79.0882 },
+  { name: 'Pune (Western MH)', crop: 'Sugarcane / Veg', lat: 18.5204, lon: 73.8567 },
   { name: 'Ludhiana (Punjab)', crop: 'Wheat / Paddy', lat: 30.901, lon: 75.8573 },
   { name: 'Guntur (Andhra)', crop: 'Chilli / Spices', lat: 16.3067, lon: 80.4365 },
   { name: 'Rajkot (Gujarat)', crop: 'Groundnut / Cotton', lat: 22.3039, lon: 70.8022 },
@@ -71,16 +71,28 @@ export const CropHealthPage: React.FC = () => {
     lon: number;
     label: string;
   }>({
-    lat: farm.location?.latitude || 21.3855,
-    lon: farm.location?.longitude || 78.9189,
+    lat: farm.location?.latitude || 0,
+    lon: farm.location?.longitude || 0,
     label: farm.name || 'Primary Farm',
   });
+
+  // Synchronize active coordinates with farm location
+  useEffect(() => {
+    if (farm.location?.latitude && farm.location?.longitude) {
+      setActiveCoords({
+        lat: farm.location.latitude,
+        lon: farm.location.longitude,
+        label: farm.name || 'Primary Farm',
+      });
+    }
+  }, [farm.id, farm.location?.latitude, farm.location?.longitude, farm.name]);
 
   // Strict Physical Device GPS (Preserved independently and never overwritten by global searches)
   const [userGpsLocation, setUserGpsLocation] = useState<{
     lat: number;
     lon: number;
   } | null>(null);
+
 
   // Searched Location State (Placed marker from global search)
   const [searchedLocation, setSearchedLocation] = useState<{
@@ -432,19 +444,9 @@ export const CropHealthPage: React.FC = () => {
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Left: Interactive Real Satellite Map Canvas & Search Bar */}
+            {/* Left: Interactive Real Satellite Map Canvas with On-Map Search */}
             <div className="lg:col-span-7 space-y-4">
               <Card className="p-4 sm:p-5 relative">
-                {/* Modern Global Search Bar */}
-                <div className="mb-3">
-                  <MapSearchBar
-                    onSelectLocation={handleSelectSearchedLocation}
-                    onMyLocationClick={handleMyLocationClick}
-                    isLocatingGps={isLocating}
-                    hasLiveGps={!!userGpsLocation}
-                    activeLocationName={activeCoords.label}
-                  />
-                </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                   <div className="flex items-center gap-2 text-xs font-bold text-gray-700">
@@ -508,6 +510,10 @@ export const CropHealthPage: React.FC = () => {
                     zoomLevel={zoomLevel}
                     onMapClick={handleMapClick}
                     cropName={farm.crop?.name || 'Farm Field'}
+                    showSearch={true}
+                    onSelectLocation={handleSelectSearchedLocation}
+                    onMyLocationClick={handleMyLocationClick}
+                    isLocatingGps={isLocating}
                   />
 
                   {/* Satellite Info Pill */}

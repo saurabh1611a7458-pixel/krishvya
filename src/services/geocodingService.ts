@@ -131,3 +131,81 @@ export async function searchGlobalLocations(
     return [];
   }
 }
+
+export interface ReverseGeocodeResult {
+  displayName: string;
+  placeName: string;
+  district: string;
+  state: string;
+  village?: string;
+  lat: number;
+  lon: number;
+}
+
+/**
+ * Reverse geocodes coordinates (lat, lon) to obtain human-readable address, district, and state.
+ */
+export async function reverseGeocode(
+  lat: number,
+  lon: number,
+  signal?: AbortSignal
+): Promise<ReverseGeocodeResult | null> {
+  if (typeof lat !== 'number' || typeof lon !== 'number' || (lat === 0 && lon === 0)) {
+    return null;
+  }
+
+  // 1. Try backend reverse geocoding proxy first
+  try {
+    const backendUrl = `/api/geocoding/reverse?lat=${lat}&lon=${lon}`;
+    const res = await fetch(backendUrl, { signal });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.data) {
+        return data.data;
+      }
+    }
+  } catch (err: any) {
+    if (err.name === 'AbortError') throw err;
+    // Fall back to direct Nominatim if backend proxy is unreachable
+  }
+
+  // 2. Direct OpenStreetMap Nominatim reverse lookup
+  try {
+    const osmUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1&accept-language=en`;
+    const res = await fetch(osmUrl, { signal });
+    if (!res.ok) return null;
+
+    const item = (await res.json()) as any;
+    const addr = item.address || {};
+    const district =
+      addr.county ||
+      addr.district ||
+      addr.state_district ||
+      addr.city ||
+      '';
+    const state = addr.state || '';
+    const village =
+      addr.village || addr.hamlet || addr.town || addr.suburb || '';
+    const placeName =
+      village ||
+      district ||
+      item.name ||
+      item.display_name?.split(',')?.[0] ||
+      `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+
+    return {
+      displayName: item.display_name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+      placeName,
+      district,
+      state,
+      village,
+      lat,
+      lon,
+    };
+  } catch (err: any) {
+    if (err.name === 'AbortError') throw err;
+    console.warn('Reverse geocoding error:', err);
+    return null;
+  }
+}
+

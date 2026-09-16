@@ -35,14 +35,14 @@ function generateAgriculturalAdvice(condition, rainProb, temp, windSpeed) {
     }
     return `Weather is favorable for routine field observation. Soil moisture is adequate for vegetative growth. Normal drip schedule recommended.`;
 }
-export async function fetchLiveWeather(latitude = 21.3855, longitude = 78.9189, farmId) {
+export async function fetchLiveWeather(latitude = 18.5204, longitude = 73.8567, farmId) {
     const cacheKey = `${latitude.toFixed(3)}_${longitude.toFixed(3)}`;
     const cached = weatherCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
         return cached.data;
     }
     try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,soil_moisture_0_to_7cm&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&timezone=auto`;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,wind_speed_10m,relative_humidity_2m,soil_moisture_0_to_7cm&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&timezone=auto`;
         const res = await fetch(url);
         if (!res.ok) {
             throw new Error(`Open-Meteo returned status ${res.status}`);
@@ -75,13 +75,118 @@ export async function fetchLiveWeather(latitude = 21.3855, longitude = 78.9189, 
         // Build 24-hour hourly slice
         const hourlyRainForecast = (hourly.time || []).slice(0, 24).map((timeStr, idx) => {
             const d = new Date(timeStr);
-            const hour = `${d.getHours()}:00`;
+            const hour = `${d.getHours().toString().padStart(2, '0')}:00`;
             return {
                 hour,
                 rainProbability: Math.round(hourly.precipitation_probability?.[idx] || 15),
                 temperature: Math.round(hourly.temperature_2m?.[idx] || current.temperature_2m),
             };
         });
+        // 24-hour Agricultural Spray Window Calculation
+        const hourlySprayForecast = (hourly.time || []).slice(0, 24).map((timeStr, idx) => {
+            const d = new Date(timeStr);
+            const hour = `${d.getHours().toString().padStart(2, '0')}:00`;
+            const temp = Math.round(hourly.temperature_2m?.[idx] || current.temperature_2m);
+            const rainProb = Math.round(hourly.precipitation_probability?.[idx] || 15);
+            const wind = Math.round(hourly.wind_speed_10m?.[idx] || current.wind_speed_10m || 10);
+            const hum = Math.round(hourly.relative_humidity_2m?.[idx] || current.relative_humidity_2m || 65);
+            let sprayStatus = 'safe';
+            let sprayReason = 'Optimal: calm winds & clear sky';
+            if (rainProb >= 40) {
+                sprayStatus = 'danger';
+                sprayReason = `Wash-off risk (${rainProb}% rain chance)`;
+            }
+            else if (wind >= 16) {
+                sprayStatus = 'danger';
+                sprayReason = `High drift risk (${wind} km/h wind)`;
+            }
+            else if (temp >= 33) {
+                sprayStatus = 'caution';
+                sprayReason = `High heat (${temp}°C): evaporation risk`;
+            }
+            else if (rainProb >= 25 || wind >= 12) {
+                sprayStatus = 'caution';
+                sprayReason = `Moderate wind (${wind} km/h) or rain threat`;
+            }
+            return {
+                hour,
+                temperature: temp,
+                rainProbability: rainProb,
+                windSpeedKmh: wind,
+                humidity: hum,
+                sprayStatus,
+                sprayReason,
+            };
+        });
+        // Weather Hazard Evaluation
+        const hazards = [];
+        const minTemp7 = Math.min(...(daily.temperature_2m_min || [22]));
+        const maxTemp7 = Math.max(...(daily.temperature_2m_max || [32]));
+        const maxRainProb = Math.max(...(daily.precipitation_probability_max || [20]));
+        const maxWind = Math.max(Math.round(current.wind_speed_10m || 12), ...(hourly.wind_speed_10m || [12]));
+        if (minTemp7 <= 5) {
+            hazards.push({
+                id: 'hazard_frost',
+                type: 'frost',
+                title: '❄️ Frost & Cold Wave Advisory (शीत लहर / पाला चेतावनी)',
+                severity: minTemp7 <= 2 ? 'critical' : 'high',
+                description: `Night temperatures expected to drop to ${minTemp7}°C. Standing crop foliage and blooms may suffer cell freeze damage.`,
+                action: 'Run light drip irrigation for 30 minutes in early morning (3:00–5:00 AM) to release latent heat and warm root zone.',
+            });
+        }
+        if (maxTemp7 >= 38) {
+            hazards.push({
+                id: 'hazard_heatwave',
+                type: 'heatwave',
+                title: '🔥 Extreme Heatwave Warning (लू की चेतावनी)',
+                severity: maxTemp7 >= 42 ? 'critical' : 'high',
+                description: `Daytime temperatures will peak at ${maxTemp7}°C with hot dry winds. Risk of blossom drop and rapid soil desiccation.`,
+                action: 'Apply mulching or provide supplemental micro-irrigation at dawn. Avoid chemical sprays between 11 AM and 3 PM.',
+            });
+        }
+        if (maxRainProb >= 70 || rainProb24h >= 65) {
+            hazards.push({
+                id: 'hazard_rain',
+                type: 'heavy_rain',
+                title: '⛈️ Heavy Rainfall & Waterlogging Alert (अतिवृष्टि चेतावनी)',
+                severity: 'high',
+                description: `Severe precipitation probability (${Math.max(maxRainProb, rainProb24h)}%). Excess standing water can asphyxiate root systems.`,
+                action: 'Clear field drainage furrows immediately. Suspend all nitrogen fertilizer broadcast and foliar sprays.',
+            });
+        }
+        if (maxWind >= 28) {
+            hazards.push({
+                id: 'hazard_squall',
+                type: 'squall',
+                title: '💨 High Wind & Squall Advisory (तेज आंधी)',
+                severity: 'moderate',
+                description: `Wind gusts expected up to ${maxWind} km/h. Risk of crop lodging in tall stalks (sugarcane, maize, banana).`,
+                action: 'Stake or prop up tall fruit crops. Delay foliar chemical spraying until wind subsides below 12 km/h.',
+            });
+        }
+        if (hazards.length === 0) {
+            hazards.push({
+                id: 'hazard_optimal',
+                type: 'optimal',
+                title: '🌱 Favorable Agricultural Weather (मौसम अनुकूल)',
+                severity: 'low',
+                description: 'Current meteorological conditions are balanced for normal photosynthesis and field operations.',
+                action: 'Ideal for routine crop scouting, mechanical weeding, and scheduled foliar nutrition.',
+            });
+        }
+        // Smart Pump Recommendation
+        const shouldRunPump = soilMoisturePercentage < 35 && rainProb24h < 35;
+        const pumpRecommendation = {
+            shouldRun: shouldRunPump,
+            action: shouldRunPump
+                ? 'Run 5HP Drip / Tubewell for 90 mins'
+                : 'Delay Tubewell Irrigation Today',
+            reason: shouldRunPump
+                ? `Soil moisture is low (${soilMoisturePercentage}%) and rain chance is low (${rainProb24h}%). Irrigate to prevent vegetative wilt.`
+                : `Rain expected within 24h (${rainProb24h}%) and soil moisture is adequate (${soilMoisturePercentage}%). Natural rain will hydrate root zone.`,
+            estimatedSavingsWaterLiters: shouldRunPump ? 0 : 45000,
+            estimatedSavingsMoneyInr: shouldRunPump ? 0 : 140,
+        };
         const weatherResponse = {
             temperature: Math.round(current.temperature_2m),
             apparentTemperature: Math.round(current.apparent_temperature || current.temperature_2m),
@@ -95,6 +200,9 @@ export async function fetchLiveWeather(latitude = 21.3855, longitude = 78.9189, 
             lastUpdated: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
             coordinates: { latitude, longitude },
             hourlyRainForecast,
+            hourlySprayForecast,
+            hazards,
+            pumpRecommendation,
             forecast7Days,
         };
         // Cache the response
@@ -147,6 +255,16 @@ export async function fetchLiveWeather(latitude = 21.3855, longitude = 78.9189, 
     catch (error) {
         console.warn('⚠️ Open-Meteo call failed, returning calibrated regional fallback:', error);
         // Regional fallback calibrated for Maharashtra / Central India
+        const fallbackHourlySpray = [
+            { hour: '06:00', temperature: 22, rainProbability: 10, windSpeedKmh: 6, humidity: 80, sprayStatus: 'safe', sprayReason: 'Optimal: calm & clear' },
+            { hour: '08:00', temperature: 25, rainProbability: 10, windSpeedKmh: 8, humidity: 75, sprayStatus: 'safe', sprayReason: 'Optimal: calm wind' },
+            { hour: '10:00', temperature: 28, rainProbability: 15, windSpeedKmh: 10, humidity: 68, sprayStatus: 'safe', sprayReason: 'Good morning window' },
+            { hour: '12:00', temperature: 31, rainProbability: 25, windSpeedKmh: 13, humidity: 62, sprayStatus: 'caution', sprayReason: 'Rising heat: spray quickly' },
+            { hour: '14:00', temperature: 33, rainProbability: 40, windSpeedKmh: 15, humidity: 60, sprayStatus: 'danger', sprayReason: 'Wash-off risk & midday heat' },
+            { hour: '16:00', temperature: 30, rainProbability: 60, windSpeedKmh: 18, humidity: 70, sprayStatus: 'danger', sprayReason: 'High rain probability (60%)' },
+            { hour: '18:00', temperature: 27, rainProbability: 65, windSpeedKmh: 14, humidity: 80, sprayStatus: 'danger', sprayReason: 'Shower imminent: do not spray' },
+            { hour: '20:00', temperature: 25, rainProbability: 70, windSpeedKmh: 10, humidity: 85, sprayStatus: 'danger', sprayReason: 'Rain active: wash-off risk' },
+        ];
         return {
             temperature: 28,
             apparentTemperature: 30,
@@ -165,6 +283,24 @@ export async function fetchLiveWeather(latitude = 21.3855, longitude = 78.9189, 
                 { hour: '18:00', rainProbability: 65, temperature: 27 },
                 { hour: '21:00', rainProbability: 70, temperature: 25 },
             ],
+            hourlySprayForecast: fallbackHourlySpray,
+            hazards: [
+                {
+                    id: 'hazard_rain',
+                    type: 'heavy_rain',
+                    title: '⛈️ Moderate Evening Showers (शाम को बारिश की संभावना)',
+                    severity: 'moderate',
+                    description: '60% probability of rain between 4 PM and 9 PM. Delay all foliar agrochemical sprays.',
+                    action: 'Ensure sprayer pumps are flushed and stored. Delay tubewell pumping.',
+                }
+            ],
+            pumpRecommendation: {
+                shouldRun: false,
+                action: 'Delay Tubewell Irrigation Today',
+                reason: 'Evening showers expected (60%). Natural rainfall will recharge root zone.',
+                estimatedSavingsWaterLiters: 45000,
+                estimatedSavingsMoneyInr: 140,
+            },
             forecast7Days: [
                 { day: 'Today', tempMax: 30, tempMin: 23, condition: 'Partly Cloudy', icon: 'cloud-sun', rainProbability: 60 },
                 { day: 'Tomorrow', tempMax: 27, tempMin: 22, condition: 'Rain Expected', icon: 'cloud-rain', rainProbability: 78 },
@@ -177,7 +313,7 @@ export async function fetchLiveWeather(latitude = 21.3855, longitude = 78.9189, 
         };
     }
 }
-export async function fetchLiveSatelliteData(latitude = 21.3855, longitude = 78.9189, farmId) {
+export async function fetchLiveSatelliteData(latitude = 18.5204, longitude = 73.8567, farmId) {
     const cacheKey = `${latitude.toFixed(4)}_${longitude.toFixed(4)}`;
     const cached = satelliteCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {

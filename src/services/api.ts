@@ -202,24 +202,56 @@ class ApiService {
     });
   }
 
-  // Live Weather & Satellite Services (Open-Meteo & Sentinel-2)
-  async getLiveWeather(lat: number = 21.3855, lon: number = 78.9189, farmId?: string) {
-    const query = new URLSearchParams({
-      lat: lat.toString(),
-      lon: lon.toString(),
-      ...(farmId ? { farmId } : {}),
+  async getDailyFarmPlan(farmContext?: any, language?: string) {
+    return this.request<any>('/ai/daily-plan', {
+      method: 'POST',
+      body: JSON.stringify({ farmContext, language }),
     });
+  }
+
+  async sendAiFeedback(payload: { recommendationId?: string; messageId?: string; rating: 'positive' | 'negative'; feedbackNotes?: string }) {
+    return this.request<any>('/ai/feedback', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getFarmAiMemory() {
+    return this.request<any[]>('/ai/memory');
+  }
+
+  async escalateAiCase(payload: {
+    title: string;
+    description?: string;
+    category?: string;
+    aiRecommendation?: string;
+    confidenceScore?: number;
+  }) {
+    return this.request<any>('/ai/escalate', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  // Live Weather & Satellite Services (Open-Meteo & Sentinel-2)
+  async getLiveWeather(lat?: number, lon?: number, farmId?: string) {
+    const params: Record<string, string> = {};
+    if (typeof lat === 'number') params.lat = lat.toString();
+    if (typeof lon === 'number') params.lon = lon.toString();
+    if (farmId) params.farmId = farmId;
+    const query = new URLSearchParams(params);
     return this.request<any>(`/weather/live?${query.toString()}`);
   }
 
-  async getLiveSatellite(lat: number = 21.3855, lon: number = 78.9189, farmId?: string) {
-    const query = new URLSearchParams({
-      lat: lat.toString(),
-      lon: lon.toString(),
-      ...(farmId ? { farmId } : {}),
-    });
+  async getLiveSatellite(lat?: number, lon?: number, farmId?: string) {
+    const params: Record<string, string> = {};
+    if (typeof lat === 'number') params.lat = lat.toString();
+    if (typeof lon === 'number') params.lon = lon.toString();
+    if (farmId) params.farmId = farmId;
+    const query = new URLSearchParams(params);
     return this.request<any>(`/satellite/live?${query.toString()}`);
   }
+
 
   // Spray Tank & Chemical Dosing Services
   async getAgrochemicals() {

@@ -64,8 +64,8 @@ authRoutes.post('/signup', async (req, res) => {
                         address: `${village || 'Village Centre'}, ${district}`,
                         district,
                         state,
-                        latitude: 21.3855,
-                        longitude: 78.9189,
+                        latitude: 18.5204,
+                        longitude: 73.8567,
                         size: Number(totalLandAcres) || 2.5,
                         sizeUnit: 'acres',
                         farmHealthScore: 82,
@@ -266,8 +266,8 @@ authRoutes.post('/verify-otp', async (req, res) => {
                     role: 'FARMER',
                     farmerProfile: {
                         create: {
-                            village: 'Saoner',
-                            district: 'Nagpur',
+                            village: 'Haveli',
+                            district: 'Pune',
                             state: 'Maharashtra',
                             totalLandAcres: 2.5,
                         },
@@ -275,11 +275,11 @@ authRoutes.post('/verify-otp', async (req, res) => {
                     farms: {
                         create: {
                             name: 'Farmer Partner Farm',
-                            address: 'Saoner, Nagpur District',
-                            district: 'Nagpur',
+                            address: 'Haveli, Pune District',
+                            district: 'Pune',
                             state: 'Maharashtra',
-                            latitude: 21.3855,
-                            longitude: 78.9189,
+                            latitude: 18.5204,
+                            longitude: 73.8567,
                             size: 2.5,
                             crop: {
                                 create: {

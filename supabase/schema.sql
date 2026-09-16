@@ -78,12 +78,20 @@ CREATE TABLE IF NOT EXISTS public.weather_data (
   id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::TEXT,
   farm_id TEXT UNIQUE NOT NULL REFERENCES public.farms(id) ON DELETE CASCADE,
   temperature FLOAT8 DEFAULT 28.0,
+  apparent_temperature FLOAT8 DEFAULT 30.0,
   condition TEXT DEFAULT 'Partly Cloudy',
   condition_icon TEXT DEFAULT 'cloud-sun',
   rain_probability FLOAT8 DEFAULT 60.0,
   humidity FLOAT8 DEFAULT 72.0,
   wind_speed_kmh FLOAT8 DEFAULT 12.0,
+  soil_moisture FLOAT8 DEFAULT 42.0,
   advice TEXT DEFAULT 'Rain is expected tomorrow. We recommend delaying irrigation today to prevent waterlogging.',
+  pump_action TEXT DEFAULT 'Delay Tubewell / Drip Irrigation Today',
+  pump_savings_water FLOAT8 DEFAULT 45000,
+  pump_savings_inr FLOAT8 DEFAULT 140,
+  hazards JSONB DEFAULT '[]'::jsonb,
+  hourly_spray JSONB DEFAULT '[]'::jsonb,
+  forecast_7days JSONB DEFAULT '[]'::jsonb,
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::TEXT, now()) NOT NULL
 );
 
@@ -128,12 +136,65 @@ CREATE TABLE IF NOT EXISTS public.alerts (
   timestamp TIMESTAMPTZ DEFAULT timezone('utc'::TEXT, now()) NOT NULL
 );
 
+-- 10. AI Daily Recommendations Table (Personalized Agronomic Cards)
+CREATE TABLE IF NOT EXISTS public.ai_recommendations (
+  id TEXT PRIMARY KEY DEFAULT ('rec_' || floor(random() * 1000000)::TEXT),
+  farm_id TEXT REFERENCES public.farms(id) ON DELETE CASCADE,
+  category TEXT NOT NULL, -- 'irrigation', 'crop_health', 'weather', 'soil', 'disease', 'today_actions', 'intercropping'
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  detailed_action TEXT,
+  urgency TEXT DEFAULT 'optimal', -- 'immediate', 'warning', 'optimal', 'info'
+  confidence_score INTEGER DEFAULT 90,
+  feedback_rating TEXT, -- 'positive', 'negative'
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::TEXT, now()) NOT NULL
+);
+
+-- 11. AI Chat Memories Table (Remembers previous problems and advice)
+CREATE TABLE IF NOT EXISTS public.ai_chat_memories (
+  id TEXT PRIMARY KEY DEFAULT ('mem_' || floor(random() * 1000000)::TEXT),
+  farm_id TEXT REFERENCES public.farms(id) ON DELETE CASCADE,
+  user_query TEXT NOT NULL,
+  ai_response TEXT NOT NULL,
+  context_snapshot JSONB,
+  topic TEXT,
+  feedback TEXT, -- 'positive', 'negative'
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::TEXT, now()) NOT NULL
+);
+
+-- 12. Disease Scans Table (Multimodal Gemini Vision Scan History)
+CREATE TABLE IF NOT EXISTS public.disease_scans (
+  id TEXT PRIMARY KEY DEFAULT ('scan_' || floor(random() * 1000000)::TEXT),
+  user_id TEXT NOT NULL,
+  farm_id TEXT NOT NULL REFERENCES public.farms(id) ON DELETE CASCADE,
+  image_url TEXT,
+  crop TEXT NOT NULL,
+  detected_problem TEXT NOT NULL,
+  scientific_name TEXT,
+  severity TEXT NOT NULL DEFAULT 'Medium',
+  confidence INTEGER NOT NULL DEFAULT 85,
+  symptoms JSONB DEFAULT '[]'::jsonb,
+  action_steps JSONB DEFAULT '[]'::jsonb,
+  causes JSONB DEFAULT '[]'::jsonb,
+  recommendation TEXT,
+  organic_treatment TEXT,
+  chemical_treatment TEXT,
+  preventative_measures JSONB DEFAULT '[]'::jsonb,
+  precautions TEXT,
+  is_uncertain BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::TEXT, now()) NOT NULL
+);
+
 -- ==============================================================================
 -- Real-time Publication (Enables instant WebSocket updates without reload)
 -- ==============================================================================
 ALTER PUBLICATION supabase_realtime ADD TABLE public.problem_cases;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.alerts;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.farms;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.weather_data;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.ai_recommendations;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.ai_chat_memories;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.disease_scans;
 
 -- ==============================================================================
 -- Row-Level Security (RLS) Configuration
@@ -146,6 +207,11 @@ ALTER TABLE public.weather_data ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.satellite_data ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.problem_cases ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.alerts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_recommendations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_chat_memories ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow anon all ai_recommendations" ON public.ai_recommendations FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow anon all ai_chat_memories" ON public.ai_chat_memories FOR ALL USING (true) WITH CHECK (true);
 
 -- Allow public read/write access for anon key in KRISHVYA
 CREATE POLICY "Allow anon read all profiles" ON public.profiles FOR SELECT USING (true);
@@ -175,6 +241,9 @@ CREATE POLICY "Allow anon update problems" ON public.problem_cases FOR UPDATE US
 
 CREATE POLICY "Allow anon read all alerts" ON public.alerts FOR SELECT USING (true);
 CREATE POLICY "Allow anon insert alerts" ON public.alerts FOR INSERT WITH CHECK (true);
+
+ALTER TABLE public.disease_scans ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow anon all disease_scans" ON public.disease_scans FOR ALL USING (true) WITH CHECK (true);
 
 -- ==============================================================================
 -- Initial Demo Seed Data

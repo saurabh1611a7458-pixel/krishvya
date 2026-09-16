@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { MapSearchBar } from './MapSearchBar';
+import { GeocodingResult } from '../../services/geocodingService';
 
 interface RealSatelliteMapProps {
   latitude: number;
@@ -13,11 +15,17 @@ interface RealSatelliteMapProps {
     placeName?: string;
   } | null;
   fieldBoundary?: Array<[number, number]>;
-  layerMode: 'true_color' | 'ndvi_spectrum' | 'moisture_ndwi';
-  ndviScore: number;
+  layerMode?: 'true_color' | 'ndvi_spectrum' | 'moisture_ndwi';
+  ndviScore?: number;
   zoomLevel?: number;
   onMapClick?: (lat: number, lon: number) => void;
   cropName?: string;
+  isEditingBoundary?: boolean;
+  onBoundaryChange?: (newBoundary: Array<[number, number]>) => void;
+  showSearch?: boolean;
+  onSelectLocation?: (result: GeocodingResult) => void;
+  onMyLocationClick?: () => void;
+  isLocatingGps?: boolean;
 }
 
 export const RealSatelliteMap: React.FC<RealSatelliteMapProps> = ({
@@ -26,11 +34,17 @@ export const RealSatelliteMap: React.FC<RealSatelliteMapProps> = ({
   userGpsLocation,
   searchedLocation,
   fieldBoundary,
-  layerMode,
-  ndviScore,
+  layerMode = 'true_color',
+  ndviScore = 0.78,
   zoomLevel,
   onMapClick,
   cropName = 'Crop Field',
+  isEditingBoundary = false,
+  onBoundaryChange,
+  showSearch = true,
+  onSelectLocation,
+  onMyLocationClick,
+  isLocatingGps = false,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -38,6 +52,22 @@ export const RealSatelliteMap: React.FC<RealSatelliteMapProps> = ({
   const polygonRef = useRef<L.Polygon | null>(null);
   const gpsMarkerRef = useRef<L.Marker | null>(null);
   const searchedMarkerRef = useRef<L.Marker | null>(null);
+  const farmMarkerRef = useRef<L.Marker | null>(null);
+  const vertexMarkersRef = useRef<L.Marker[]>([]);
+
+  const isLocationSet = Boolean(typeof latitude === 'number' && typeof longitude === 'number' && (latitude !== 0 || longitude !== 0));
+
+  // Keep latest onBoundaryChange in ref to avoid re-binding during drags
+  const onBoundaryChangeRef = useRef(onBoundaryChange);
+  useEffect(() => {
+    onBoundaryChangeRef.current = onBoundaryChange;
+  }, [onBoundaryChange]);
+
+  // Keep current boundary vertices in ref
+  const currentVerticesRef = useRef<Array<[number, number]>>(fieldBoundary || []);
+  useEffect(() => {
+    currentVerticesRef.current = fieldBoundary || [];
+  }, [fieldBoundary]);
 
   // Initialize Leaflet Map
   useEffect(() => {
@@ -52,15 +82,16 @@ export const RealSatelliteMap: React.FC<RealSatelliteMapProps> = ({
         shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
       });
 
+      const initialCenter: [number, number] = isLocationSet ? [latitude, longitude] : [20.5937, 78.9629];
+
       const map = L.map(containerRef.current, {
-        center: [latitude, longitude],
-        zoom: zoomLevel || 15,
+        center: initialCenter,
+        zoom: isLocationSet ? (zoomLevel || 16) : 5,
         minZoom: 3,
         maxZoom: 19,
         zoomControl: true,
       });
 
-      // Move zoom control to bottom right so it doesn't collide with top search bar
       map.zoomControl.setPosition('bottomright');
 
       // Real High-Resolution Global Satellite Imagery (ArcGIS World Imagery from space)
@@ -76,7 +107,7 @@ export const RealSatelliteMap: React.FC<RealSatelliteMapProps> = ({
 
       tileLayerRef.current = satelliteTileLayer;
 
-      // Handle map clicks for custom pin location
+      // Handle map clicks
       map.on('click', (e: L.LeafletMouseEvent) => {
         if (onMapClick) {
           onMapClick(e.latlng.lat, e.latlng.lng);
@@ -87,6 +118,10 @@ export const RealSatelliteMap: React.FC<RealSatelliteMapProps> = ({
     }
 
     return () => {
+      if (farmMarkerRef.current) {
+        farmMarkerRef.current.remove();
+        farmMarkerRef.current = null;
+      }
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -94,18 +129,63 @@ export const RealSatelliteMap: React.FC<RealSatelliteMapProps> = ({
     };
   }, []);
 
-  // Fly to target position when latitude/longitude or zoom changes
+  // Fly to target position when latitude/longitude changes
   useEffect(() => {
     if (!mapRef.current) return;
+    if (!isLocationSet) return;
+
+    // Don't interrupt if user is actively dragging boundary corners
+    if (isEditingBoundary) return;
 
     const targetZoom = zoomLevel || (searchedLocation ? 15 : 16);
     mapRef.current.flyTo([latitude, longitude], targetZoom, {
       animate: true,
       duration: 1.2,
     });
-  }, [latitude, longitude, zoomLevel, searchedLocation]);
 
-  // Render / Update Live GPS Radar Marker (Strictly for user's real GPS position)
+    setTimeout(() => {
+      mapRef.current?.invalidateSize();
+    }, 200);
+  }, [latitude, longitude, zoomLevel, searchedLocation, isEditingBoundary, isLocationSet]);
+
+  // Render / Update Farm Location Center Marker
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    if (isLocationSet) {
+      if (!farmMarkerRef.current) {
+        const farmIcon = L.divIcon({
+          className: 'custom-farm-pin',
+          html: `
+            <div style="position: relative; width: 34px; height: 34px; cursor: pointer;">
+              <div style="display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; background: #16a34a; border: 3px solid #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.5); font-size: 16px;">
+                🌾
+              </div>
+            </div>
+          `,
+          iconSize: [34, 34],
+          iconAnchor: [17, 17],
+        });
+
+        farmMarkerRef.current = L.marker([latitude, longitude], { icon: farmIcon, zIndexOffset: 1200 }).addTo(mapRef.current);
+      } else {
+        farmMarkerRef.current.setLatLng([latitude, longitude]);
+      }
+
+      farmMarkerRef.current.bindPopup(`
+        <div style="font-family: sans-serif; font-size: 12px; color: #111827;">
+          <b style="color: #15803d; font-size: 13px;">🌾 ${cropName || 'Farm'}</b><br/>
+          <span style="font-size: 11px; color: #4b5563;">Coordinates: ${latitude.toFixed(4)}°N, ${longitude.toFixed(4)}°E</span>
+        </div>
+      `);
+    } else if (farmMarkerRef.current) {
+      farmMarkerRef.current.remove();
+      farmMarkerRef.current = null;
+    }
+  }, [isLocationSet, latitude, longitude, cropName]);
+
+
+  // Render / Update Live GPS Radar Marker
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -137,9 +217,6 @@ export const RealSatelliteMap: React.FC<RealSatelliteMapProps> = ({
             <div style="font-size: 11px; color: #4b5563;">
               Lat: <b>${lat.toFixed(5)}</b> • Lon: <b>${lon.toFixed(5)}</b>
             </div>
-            <div style="font-size: 10px; color: #9ca3af; margin-top: 3px;">
-              Physical device location
-            </div>
           </div>
         `);
         gpsMarkerRef.current = marker;
@@ -160,7 +237,6 @@ export const RealSatelliteMap: React.FC<RealSatelliteMapProps> = ({
       if (searchedMarkerRef.current) {
         searchedMarkerRef.current.setLatLng([lat, lon]);
       } else {
-        // High-visibility rose/indigo drop pin
         const searchIcon = L.divIcon({
           className: 'custom-search-marker',
           html: `
@@ -181,7 +257,6 @@ export const RealSatelliteMap: React.FC<RealSatelliteMapProps> = ({
         searchedMarkerRef.current = marker;
       }
 
-      // Update popup content and open it
       searchedMarkerRef.current.bindPopup(`
         <div style="font-family: sans-serif; font-size: 12px; color: #111827; max-width: 240px;">
           <div style="display: flex; align-items: center; gap: 6px; font-weight: bold; color: #4338ca; margin-bottom: 4px;">
@@ -212,39 +287,136 @@ export const RealSatelliteMap: React.FC<RealSatelliteMapProps> = ({
     }
 
     if (fieldBoundary && fieldBoundary.length > 2) {
-      const polygonColor =
-        layerMode === 'ndvi_spectrum'
-          ? ndviScore >= 0.75
-            ? '#22c55e'
-            : ndviScore >= 0.6
-            ? '#eab308'
-            : '#ef4444'
-          : '#38bdf8';
+      const polygonColor = isEditingBoundary
+        ? '#f59e0b'
+        : layerMode === 'ndvi_spectrum'
+        ? ndviScore >= 0.75
+          ? '#22c55e'
+          : ndviScore >= 0.6
+          ? '#eab308'
+          : '#ef4444'
+        : '#22c55e';
 
       const poly = L.polygon(fieldBoundary, {
         color: polygonColor,
-        weight: 3,
-        dashArray: '5, 5',
+        weight: isEditingBoundary ? 3.5 : 3,
+        dashArray: isEditingBoundary ? '6, 6' : '5, 5',
         fillColor: polygonColor,
-        fillOpacity: layerMode === 'ndvi_spectrum' ? 0.25 : 0.15,
+        fillOpacity: isEditingBoundary ? 0.35 : layerMode === 'ndvi_spectrum' ? 0.25 : 0.2,
       }).addTo(mapRef.current);
 
-      poly.bindPopup(`
-        <div style="font-family: sans-serif; font-size: 12px; color: #1f2937;">
-          <b style="font-size: 13px;">🌾 ${cropName} Field Boundary</b><br/>
-          <span>Area: ~2.5 Acres</span><br/>
-          <span>Mean NDVI: <b>${ndviScore}</b></span>
-        </div>
-      `);
+      if (!isEditingBoundary) {
+        poly.bindPopup(`
+          <div style="font-family: sans-serif; font-size: 12px; color: #1f2937;">
+            <b style="font-size: 13px;">🌾 ${cropName} Boundary</b><br/>
+            <span>Points: ${fieldBoundary.length} vertices</span><br/>
+            <span>Status: Active Field Polygon</span>
+          </div>
+        `);
+      }
 
       polygonRef.current = poly;
     }
-  }, [fieldBoundary, layerMode, ndviScore, cropName]);
+  }, [fieldBoundary, layerMode, ndviScore, cropName, isEditingBoundary]);
+
+  // Interactive Boundary Vertex Handles (when isEditingBoundary is true)
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    // Clean up existing vertex handles
+    vertexMarkersRef.current.forEach((m) => m.remove());
+    vertexMarkersRef.current = [];
+
+    if (!isEditingBoundary || !fieldBoundary || fieldBoundary.length < 3) {
+      return;
+    }
+
+    const markers: L.Marker[] = [];
+
+    fieldBoundary.forEach(([vLat, vLon], index) => {
+      const handleIcon = L.divIcon({
+        className: 'custom-boundary-vertex-handle',
+        html: `
+          <div style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: #f59e0b; border: 3px solid #ffffff; box-shadow: 0 2px 8px rgba(0,0,0,0.5); cursor: grab; font-family: sans-serif; font-weight: 800; font-size: 11px; color: #ffffff;">
+            ${index + 1}
+          </div>
+        `,
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+      });
+
+      const vertexMarker = L.marker([vLat, vLon], {
+        icon: handleIcon,
+        draggable: true,
+        zIndexOffset: 3000,
+      }).addTo(mapRef.current!);
+
+      vertexMarker.on('drag', (e: L.LeafletEvent) => {
+        const target = e.target as L.Marker;
+        const newPos = target.getLatLng();
+
+        const updated = [...currentVerticesRef.current];
+        updated[index] = [parseFloat(newPos.lat.toFixed(6)), parseFloat(newPos.lng.toFixed(6))];
+        currentVerticesRef.current = updated;
+
+        if (polygonRef.current) {
+          polygonRef.current.setLatLngs(updated);
+        }
+
+        if (onBoundaryChangeRef.current) {
+          onBoundaryChangeRef.current(updated);
+        }
+      });
+
+      vertexMarker.on('dragend', () => {
+        if (onBoundaryChangeRef.current) {
+          onBoundaryChangeRef.current(currentVerticesRef.current);
+        }
+      });
+
+      vertexMarker.bindTooltip(`Corner ${index + 1} (Drag to adjust)`, {
+        direction: 'top',
+        offset: [0, -12],
+      });
+
+      markers.push(vertexMarker);
+    });
+
+    vertexMarkersRef.current = markers;
+
+    return () => {
+      markers.forEach((m) => m.remove());
+    };
+  }, [isEditingBoundary, fieldBoundary?.length]);
+
+  const handleInternalSelectLocation = (result: GeocodingResult) => {
+    if (onSelectLocation) {
+      onSelectLocation(result);
+    } else if (mapRef.current) {
+      mapRef.current.flyTo([result.lat, result.lon], result.type === 'city' ? 13 : 16, {
+        animate: true,
+        duration: 1.2,
+      });
+    }
+  };
 
   return (
     <div className="relative w-full h-full min-h-[400px] sm:min-h-[460px] rounded-2xl overflow-hidden shadow-inner border border-earth-300">
       {/* Real Map Canvas */}
       <div ref={containerRef} className="w-full h-full min-h-[400px] sm:min-h-[460px]" />
+
+      {/* Floating Search Icon & Global Search Bar directly ON Satellite Map */}
+      {showSearch && (
+        <div className="absolute top-3 left-3 z-[1001] max-w-[calc(100%-80px)] sm:max-w-md">
+          <MapSearchBar
+            onSelectLocation={handleInternalSelectLocation}
+            onMyLocationClick={onMyLocationClick}
+            isLocatingGps={isLocatingGps}
+            hasLiveGps={!!userGpsLocation}
+            collapsible={true}
+          />
+        </div>
+      )}
 
       {/* Layer Filter Overlay Simulation */}
       {layerMode === 'ndvi_spectrum' && (
@@ -269,19 +441,53 @@ export const RealSatelliteMap: React.FC<RealSatelliteMapProps> = ({
         />
       )}
 
-      {/* Live Orbit Stamp & Spectrum Legend */}
+      {/* Boundary Editing Status Pill (offset so it doesn't overlap search icon) */}
+      {isEditingBoundary && (
+        <div className="absolute top-14 left-3 z-[1000] bg-amber-500/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-amber-300 text-white text-xs font-bold flex items-center gap-2 shadow-lg animate-pulse pointer-events-none">
+          <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+          <span>Boundary Edit Mode: Drag corner pins (1, 2, 3...) to reshape field</span>
+        </div>
+      )}
+
+      {/* Live Orbit Stamp */}
       <div className="absolute bottom-3 left-3 z-[1000] bg-black/75 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 text-white text-[10px] flex items-center gap-2 shadow-lg pointer-events-none">
         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
         <span>
-          Live Satellite: <strong>ESRI Orbit • Sentinel-2 Multi-Spectral</strong>
+          Live Satellite: <strong>ESRI Orbit • Sub-meter Resolution</strong>
         </span>
       </div>
 
-      <div className="absolute bottom-3 right-16 z-[1000] bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-earth-200 text-gray-800 text-[10px] font-mono shadow-sm flex items-center gap-1.5 pointer-events-none">
-        <span>Lat: {latitude.toFixed(4)}°N</span>
-        <span>•</span>
-        <span>Lon: {longitude.toFixed(4)}°E</span>
-      </div>
+      {isLocationSet && (
+        <div className="absolute bottom-3 right-16 z-[1000] bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-earth-200 text-gray-800 text-[10px] font-mono shadow-sm flex items-center gap-1.5 pointer-events-none">
+          <span>Lat: {latitude.toFixed(4)}°N</span>
+          <span>•</span>
+          <span>Lon: {longitude.toFixed(4)}°E</span>
+        </div>
+      )}
+
+      {/* Missing Location Empty State Overlay */}
+      {!isLocationSet && (
+        <div className="absolute inset-0 bg-stone-900/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-[1000]">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mb-3">
+            <span className="text-2xl">📍</span>
+          </div>
+          <h3 className="text-lg font-bold text-white mb-1">📍 Farm location not set</h3>
+          <p className="text-xs text-stone-300 max-w-sm mb-4">
+            Coordinates have not been configured for this farm. Search a location or acquire GPS coordinates to view satellite imagery.
+          </p>
+          {onMyLocationClick && (
+            <button
+              onClick={onMyLocationClick}
+              type="button"
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer"
+            >
+              <span>🛰️</span>
+              <span>Set Farm Location</span>
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };
+

@@ -26,7 +26,7 @@ export interface FarmerProfile extends User {
   smsNotifications: boolean;
 }
 
-export type CropStage = 'Seedling' | 'Vegetative' | 'Flowering' | 'Fruiting' | 'Harvest';
+export type CropStage = 'Seedling' | 'Vegetative' | 'Flowering' | 'Fruiting' | 'Harvest' | string;
 
 export interface Crop {
   id: string;
@@ -80,6 +80,7 @@ export interface FarmLocation {
   district?: string;
   latitude: number;
   longitude: number;
+  boundaryVertices?: Array<[number, number]>;
 }
 
 export interface Farm {
@@ -95,6 +96,7 @@ export interface Farm {
   satellite: SatelliteData;
   farmHealthScore: number; // 0-100
   irrigationType: 'Drip' | 'Flood' | 'Sprinkler' | 'Rainfed';
+  boundaryVertices?: Array<[number, number]>;
 }
 
 // Problem Resolution System Types
@@ -180,4 +182,28 @@ export interface FarmHistory {
   event: string;
   details: string;
   impact: 'positive' | 'neutral' | 'negative';
+}
+
+export interface DiseaseScan {
+  id: string;
+  userId: string;
+  farmId: string;
+  imageUrl: string;
+  crop: string;
+  detectedProblem: string;
+  scientificName?: string;
+  severity: 'Low' | 'Medium' | 'High' | 'Critical';
+  confidence: number;
+  symptoms: string[];
+  actionSteps: string[];
+  causes?: string[];
+  recommendation?: string;
+  organicTreatment?: string;
+  chemicalTreatment?: string;
+  preventativeMeasures?: string[];
+  precautions?: string;
+  isUncertain?: boolean;
+  uncertaintyMessage?: string;
+  aiEngine?: string;
+  createdAt: string;
 }

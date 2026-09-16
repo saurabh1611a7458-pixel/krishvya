@@ -96,8 +96,21 @@ function formatFarmResponse(farm, owner) {
 farmRoutes.get('/', optionalAuthMiddleware, async (req, res) => {
     try {
         const userId = req.user?.id;
+        const farmId = typeof req.query.id === 'string' ? req.query.id : undefined;
         let farm = null;
-        if (userId) {
+        if (farmId) {
+            farm = await prisma.farm.findUnique({
+                where: { id: farmId },
+                include: {
+                    owner: true,
+                    crop: true,
+                    soil: true,
+                    weather: true,
+                    satellite: true,
+                },
+            });
+        }
+        if (!farm && userId) {
             farm = await prisma.farm.findFirst({
                 where: { ownerId: userId },
                 include: {
@@ -140,8 +153,12 @@ farmRoutes.put('/', optionalAuthMiddleware, async (req, res) => {
     try {
         const userId = req.user?.id;
         const updates = req.body;
+        const farmId = updates.id || (typeof req.query.id === 'string' ? req.query.id : undefined);
         let targetFarm = null;
-        if (userId) {
+        if (farmId) {
+            targetFarm = await prisma.farm.findUnique({ where: { id: farmId } });
+        }
+        if (!targetFarm && userId) {
             targetFarm = await prisma.farm.findFirst({ where: { ownerId: userId } });
         }
         if (!targetFarm) {
@@ -156,6 +173,15 @@ farmRoutes.put('/', optionalAuthMiddleware, async (req, res) => {
             where: { id: targetFarm.id },
             data: {
                 name: updates.name || undefined,
+                address: updates.location?.address || updates.address || undefined,
+                district: updates.location?.district || updates.district || undefined,
+                state: updates.location?.state || updates.state || undefined,
+                latitude: typeof updates.location?.latitude === 'number'
+                    ? updates.location.latitude
+                    : (typeof updates.latitude === 'number' ? updates.latitude : undefined),
+                longitude: typeof updates.location?.longitude === 'number'
+                    ? updates.location.longitude
+                    : (typeof updates.longitude === 'number' ? updates.longitude : undefined),
                 size: updates.size !== undefined ? Number(updates.size) : undefined,
                 sizeUnit: updates.sizeUnit || undefined,
                 irrigationType: updates.irrigationType || undefined,

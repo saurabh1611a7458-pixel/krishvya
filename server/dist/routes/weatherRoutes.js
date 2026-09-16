@@ -1,13 +1,31 @@
 import { Router } from 'express';
 import { fetchLiveWeather, fetchLiveSatelliteData } from '../services/weatherSatelliteService.js';
+import { prisma } from '../db.js';
 export const weatherRoutes = Router();
 export const satelliteRoutes = Router();
+async function resolveCoordinates(latParam, lonParam, farmId) {
+    let lat = latParam ? parseFloat(latParam) : NaN;
+    let lon = lonParam ? parseFloat(lonParam) : NaN;
+    if (isNaN(lat) || isNaN(lon)) {
+        if (farmId) {
+            const farm = await prisma.farm.findUnique({ where: { id: farmId } });
+            if (farm && typeof farm.latitude === 'number' && typeof farm.longitude === 'number') {
+                return { lat: farm.latitude, lon: farm.longitude };
+            }
+        }
+        const firstFarm = await prisma.farm.findFirst();
+        if (firstFarm && typeof firstFarm.latitude === 'number' && typeof firstFarm.longitude === 'number') {
+            return { lat: firstFarm.latitude, lon: firstFarm.longitude };
+        }
+        return { lat: 18.5204, lon: 73.8567 };
+    }
+    return { lat, lon };
+}
 // GET /api/weather/live
 weatherRoutes.get('/live', async (req, res) => {
     try {
-        const lat = req.query.lat ? parseFloat(req.query.lat) : 21.3855;
-        const lon = req.query.lon ? parseFloat(req.query.lon) : 78.9189;
         const farmId = req.query.farmId;
+        const { lat, lon } = await resolveCoordinates(req.query.lat, req.query.lon, farmId);
         const weather = await fetchLiveWeather(lat, lon, farmId);
         res.json({
             success: true,
@@ -26,9 +44,8 @@ weatherRoutes.get('/live', async (req, res) => {
 // GET /api/satellite/live
 satelliteRoutes.get('/live', async (req, res) => {
     try {
-        const lat = req.query.lat ? parseFloat(req.query.lat) : 21.3855;
-        const lon = req.query.lon ? parseFloat(req.query.lon) : 78.9189;
         const farmId = req.query.farmId;
+        const { lat, lon } = await resolveCoordinates(req.query.lat, req.query.lon, farmId);
         const satellite = await fetchLiveSatelliteData(lat, lon, farmId);
         res.json({
             success: true,

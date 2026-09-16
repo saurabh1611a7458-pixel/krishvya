@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../db.js';
 import { optionalAuthMiddleware } from '../middleware/authMiddleware.js';
-import { diagnoseCropDisease, chatFarmAdvisor } from '../services/geminiService.js';
+import { diagnoseCropDisease, chatFarmAdvisor, generateDailyFarmPlan } from '../services/geminiService.js';
 export const aiRoutes = Router();
 // POST /api/ai/diagnose - Multimodal Leaf Disease Detection
 aiRoutes.post('/diagnose', optionalAuthMiddleware, async (req, res) => {
@@ -30,6 +30,46 @@ aiRoutes.post('/diagnose', optionalAuthMiddleware, async (req, res) => {
         });
     }
 });
+// GET & POST /api/ai/daily-plan - Personalized 7-Card Agricultural Daily Plan
+const handleDailyPlan = async (req, res) => {
+    try {
+        const language = (req.query.language || req.body.language || 'english');
+        let farmContext = req.body.farmContext;
+        const farm = await prisma.farm.findFirst({
+            include: { crop: true, soil: true, weather: true, satellite: true },
+        });
+        if (!farmContext && farm) {
+            farmContext = {
+                id: farm.id,
+                location: { address: farm.address, district: farm.district, state: farm.state },
+                crop: farm.crop,
+                soil: farm.soil,
+                weather: farm.weather,
+                size: farm.size,
+                irrigationType: farm.irrigationType,
+            };
+        }
+        const pastCases = await prisma.problemCase.findMany({
+            orderBy: { createdAt: 'desc' },
+            take: 5,
+        });
+        const result = await generateDailyFarmPlan(farmContext, pastCases, language);
+        res.json({
+            success: true,
+            data: result,
+        });
+    }
+    catch (error) {
+        console.error('AI daily plan route error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to generate personalized daily farm plan.',
+            error: error.message,
+        });
+    }
+};
+aiRoutes.get('/daily-plan', optionalAuthMiddleware, handleDailyPlan);
+aiRoutes.post('/daily-plan', optionalAuthMiddleware, handleDailyPlan);
 // POST /api/ai/advisor - Context-Grounded Conversational Agronomist
 aiRoutes.post('/advisor', optionalAuthMiddleware, async (req, res) => {
     try {
@@ -38,38 +78,33 @@ aiRoutes.post('/advisor', optionalAuthMiddleware, async (req, res) => {
             res.status(400).json({ success: false, message: 'Message prompt is required.' });
             return;
         }
-        // Retrieve live farm context from SQLite database for grounding
+        // Retrieve live farm context from database for grounding
         let farmContext = req.body.farmContext;
-        if (!farmContext) {
-            const userId = req.user?.id;
-            let farm = null;
-            if (userId) {
-                farm = await prisma.farm.findFirst({
-                    where: { ownerId: userId },
-                    include: { crop: true, soil: true, weather: true, satellite: true },
-                });
-            }
-            if (!farm) {
-                farm = await prisma.farm.findFirst({
-                    include: { crop: true, soil: true, weather: true, satellite: true },
-                });
-            }
-            if (farm) {
-                farmContext = {
-                    location: { address: farm.address, district: farm.district, state: farm.state },
-                    crop: farm.crop,
-                    soil: farm.soil,
-                    weather: farm.weather,
-                    irrigationType: farm.irrigationType,
-                };
-            }
+        const farm = await prisma.farm.findFirst({
+            include: { crop: true, soil: true, weather: true, satellite: true },
+        });
+        if (!farmContext && farm) {
+            farmContext = {
+                location: { address: farm.address, district: farm.district, state: farm.state },
+                crop: farm.crop,
+                soil: farm.soil,
+                weather: farm.weather,
+                size: farm.size,
+                irrigationType: farm.irrigationType,
+            };
         }
-        const { reply, aiEngine } = await chatFarmAdvisor(message, history, farmContext, language);
+        const pastCases = await prisma.problemCase.findMany({
+            orderBy: { createdAt: 'desc' },
+            take: 3,
+        });
+        const { reply, aiEngine, confidence, requiresExpertReview } = await chatFarmAdvisor(message, history, farmContext, language, [], pastCases);
         res.json({
             success: true,
             data: {
                 reply,
                 aiEngine,
+                confidence,
+                requiresExpertReview,
                 timestamp: new Date().toISOString(),
             },
         });
@@ -81,5 +116,63 @@ aiRoutes.post('/advisor', optionalAuthMiddleware, async (req, res) => {
             message: 'Failed to generate farm advisory.',
             error: error.message,
         });
+    }
+});
+// POST /api/ai/feedback - Farmer rating (thumbs up / thumbs down)
+aiRoutes.post('/feedback', optionalAuthMiddleware, async (req, res) => {
+    try {
+        const { rating, feedbackNotes } = req.body;
+        console.log(`👍/👎 [AI Feedback] Received rating: ${rating}, notes: ${feedbackNotes || 'None'}`);
+        res.json({
+            success: true,
+            message: 'Feedback successfully recorded.',
+        });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+// GET /api/ai/memory - Retrieve farm problem history & past advice
+aiRoutes.get('/memory', optionalAuthMiddleware, async (_req, res) => {
+    try {
+        const cases = await prisma.problemCase.findMany({
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+        });
+        res.json({
+            success: true,
+            data: cases,
+        });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+// POST /api/ai/escalate - 1-Tap escalation to human agronomist
+aiRoutes.post('/escalate', optionalAuthMiddleware, async (req, res) => {
+    try {
+        const { title, description, category = 'crop', aiRecommendation, confidenceScore = 70 } = req.body;
+        const farm = await prisma.farm.findFirst();
+        const newCase = await prisma.problemCase.create({
+            data: {
+                farmerId: req.user?.id || 'farmer_guest',
+                farmId: farm?.id || 'farm_default',
+                category,
+                title: title || 'Low-Confidence AI Case Escalation',
+                description: description || 'Farmer requested agronomist review following AI advisory.',
+                status: 'expert_review',
+                confidenceScore: Number(confidenceScore),
+                aiRecommendation,
+            },
+        });
+        res.json({
+            success: true,
+            message: 'Case escalated to agricultural expert desk.',
+            data: newCase,
+        });
+    }
+    catch (error) {
+        console.error('Escalate error:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });

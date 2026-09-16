@@ -9,9 +9,12 @@ import {
   Sprout,
   Sparkles,
 } from 'lucide-react';
+import { useFarm } from '../context/FarmContext';
 
 export const RegenerativePage: React.FC = () => {
+  const { farm } = useFarm();
   const [planModalOpen, setPlanModalOpen] = useState(false);
+
 
   const score = 78;
   const circumference = 2 * Math.PI * 40;
@@ -55,8 +58,9 @@ export const RegenerativePage: React.FC = () => {
           </div>
 
           <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">
-            Eco Score: Top 15% in Saoner
+            Eco Score: Top 15% in {farm.location?.district || farm.location?.address?.split(',')?.[0] || 'Region'}
           </span>
+
         </header>
 
         <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
