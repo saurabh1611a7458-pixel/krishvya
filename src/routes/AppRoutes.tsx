@@ -40,7 +40,7 @@ const PageLoadingFallback: React.FC = () => (
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isLoaded: clerkLoaded, isSignedIn: clerkSignedIn } = useUser();
-  const { isAuthenticated, activeUserKey, isNewUser, isSyncingAuth, farms } = useFarm();
+  const { isAuthenticated, isNewUser, isSyncingAuth, farms } = useFarm();
   const location = useLocation();
 
   // 1. While Clerk auth or initial Supabase sync is running
@@ -55,7 +55,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   // 2. Unauthenticated check
-  const isAuth = Boolean(clerkSignedIn || isAuthenticated || activeUserKey !== 'clerk');
+  const isAuth = Boolean(clerkSignedIn || isAuthenticated);
   if (!isAuth) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
@@ -256,6 +256,10 @@ export const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
+
+      {/* Route Aliases */}
+      <Route path="/soil-health" element={<Navigate to="/soil" replace />} />
+      <Route path="/disease-doctor" element={<Navigate to="/disease" replace />} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />

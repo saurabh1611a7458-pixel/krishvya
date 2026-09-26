@@ -10,7 +10,7 @@ function formatFarmResponse(farm, owner) {
         owner: owner
             ? {
                 id: owner.id || farm.ownerId,
-                name: owner.name || 'Farmer',
+                name: owner.name || '',
                 phone: owner.phone || '',
                 email: owner.email || '',
                 role: (owner.role || 'FARMER').toLowerCase(),
@@ -27,27 +27,27 @@ function formatFarmResponse(farm, owner) {
         },
         size: farm.size || 0,
         sizeUnit: farm.sizeUnit || 'acres',
-        farmHealthScore: farm.farmHealthScore || 80,
-        irrigationType: farm.irrigationType || 'Drip',
+        farmHealthScore: farm.farmHealthScore || 0,
+        irrigationType: farm.irrigationType || '',
         crop: farm.crop
             ? {
                 id: farm.crop.id,
                 name: farm.crop.name,
                 variety: farm.crop.variety || '',
-                stage: farm.crop.stage || 'Flowering',
+                stage: farm.crop.stage || '',
                 sowingDate: farm.crop.sowingDate ? new Date(farm.crop.sowingDate).toLocaleDateString('en-GB') : '',
             }
             : null,
         soil: farm.soil
             ? {
                 healthScore: farm.soil.healthScore || 0,
-                nitrogen: farm.soil.nitrogen || 'Good',
-                phosphorus: farm.soil.phosphorus || 'Medium',
-                potassium: farm.soil.potassium || 'Good',
-                ph: farm.soil.ph || 6.8,
+                nitrogen: farm.soil.nitrogen || '',
+                phosphorus: farm.soil.phosphorus || '',
+                potassium: farm.soil.potassium || '',
+                ph: farm.soil.ph || 7.0,
                 organicCarbon: farm.soil.organicCarbon || '',
                 moisturePercentage: farm.soil.moisturePercentage || 0,
-                soilType: farm.soil.soilType || 'Loamy',
+                soilType: farm.soil.soilType || '',
             }
             : null,
         weather: farm.weather
@@ -175,23 +175,23 @@ farmRoutes.post('/', optionalAuthMiddleware, async (req, res) => {
                 id: farmId,
                 name: payload.name || 'New Farm Parcel',
                 ownerId: userId,
-                address: payload.location?.address || payload.address || 'Location not set',
+                address: payload.location?.address || payload.address || '',
                 district: payload.location?.district || payload.district || '',
                 state: payload.location?.state || payload.state || '',
                 latitude: typeof payload.location?.latitude === 'number' ? payload.location.latitude : (typeof payload.latitude === 'number' ? payload.latitude : 0),
                 longitude: typeof payload.location?.longitude === 'number' ? payload.location.longitude : (typeof payload.longitude === 'number' ? payload.longitude : 0),
-                size: Number(payload.size) || 1,
+                size: Number(payload.size) || 0,
                 sizeUnit: payload.sizeUnit || 'acres',
-                farmHealthScore: Number(payload.farmHealthScore) || 82,
-                irrigationType: payload.irrigationType || 'Drip',
+                farmHealthScore: Number(payload.farmHealthScore) || 0,
+                irrigationType: payload.irrigationType || '',
                 ...(payload.crop?.name
                     ? {
                         crop: {
                             create: {
                                 name: payload.crop.name,
                                 variety: payload.crop.variety || '',
-                                stage: payload.crop.stage || 'Flowering',
-                                sowingDate: payload.crop.sowingDate ? new Date(payload.crop.sowingDate) : new Date(),
+                                stage: payload.crop.stage || '',
+                                sowingDate: payload.crop.sowingDate ? new Date(payload.crop.sowingDate) : new Date(0),
                             },
                         },
                     }
@@ -200,14 +200,14 @@ farmRoutes.post('/', optionalAuthMiddleware, async (req, res) => {
                     ? {
                         soil: {
                             create: {
-                                healthScore: Number(payload.soil.healthScore) || 78,
-                                soilType: payload.soil.soilType,
-                                ph: Number(payload.soil.ph) || 6.8,
-                                nitrogen: payload.soil.nitrogen || 'Good',
-                                phosphorus: payload.soil.phosphorus || 'Medium',
-                                potassium: payload.soil.potassium || 'Good',
-                                moisturePercentage: Number(payload.soil.moisturePercentage) || 40,
-                                organicCarbon: payload.soil.organicCarbon || 'Medium',
+                                healthScore: Number(payload.soil.healthScore) || 0,
+                                soilType: payload.soil.soilType || '',
+                                ph: Number(payload.soil.ph) || 7.0,
+                                nitrogen: payload.soil.nitrogen || '',
+                                phosphorus: payload.soil.phosphorus || '',
+                                potassium: payload.soil.potassium || '',
+                                moisturePercentage: Number(payload.soil.moisturePercentage) || 0,
+                                organicCarbon: payload.soil.organicCarbon || '',
                             },
                         },
                     }
@@ -278,8 +278,8 @@ farmRoutes.put('/', optionalAuthMiddleware, async (req, res) => {
                                 create: {
                                     name: updates.crop.name,
                                     variety: updates.crop.variety || '',
-                                    stage: updates.crop.stage || 'FLOWERING',
-                                    sowingDate: updates.crop.sowingDate ? new Date(updates.crop.sowingDate) : new Date(),
+                                    stage: updates.crop.stage || '',
+                                    sowingDate: updates.crop.sowingDate ? new Date(updates.crop.sowingDate) : new Date(0),
                                 },
                                 update: {
                                     name: updates.crop.name,
@@ -296,12 +296,12 @@ farmRoutes.put('/', optionalAuthMiddleware, async (req, res) => {
                         soil: {
                             upsert: {
                                 create: {
-                                    healthScore: updates.soil.healthScore || 78,
-                                    nitrogen: updates.soil.nitrogen || 'Good',
-                                    phosphorus: updates.soil.phosphorus || 'Medium',
-                                    potassium: updates.soil.potassium || 'Good',
-                                    ph: updates.soil.ph || 6.7,
-                                    soilType: updates.soil.soilType || 'Loamy',
+                                    healthScore: updates.soil.healthScore || 0,
+                                    nitrogen: updates.soil.nitrogen || '',
+                                    phosphorus: updates.soil.phosphorus || '',
+                                    potassium: updates.soil.potassium || '',
+                                    ph: updates.soil.ph || 7.0,
+                                    soilType: updates.soil.soilType || '',
                                 },
                                 update: {
                                     healthScore: updates.soil.healthScore,

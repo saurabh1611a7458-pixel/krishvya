@@ -97,6 +97,24 @@ export interface Farm {
   farmHealthScore: number; // 0-100
   irrigationType: 'Drip' | 'Flood' | 'Sprinkler' | 'Rainfed';
   boundaryVertices?: Array<[number, number]>;
+
+  // Canonical Supabase fields for direct access
+  farm_id?: string;
+  user_id?: string;
+  clerk_user_id?: string;
+  farm_name?: string;
+  location_address?: string;
+  latitude?: number;
+  longitude?: number;
+  boundary?: Array<[number, number]>;
+  field_area?: number;
+  crop_variety?: string;
+  crop_stage?: string;
+  soil_type?: string;
+  irrigation_type?: string;
+  sowing_date?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Problem Resolution System Types
@@ -205,5 +223,51 @@ export interface DiseaseScan {
   isUncertain?: boolean;
   uncertaintyMessage?: string;
   aiEngine?: string;
+  createdAt: string;
+}
+
+export interface SoilTestRecord {
+  id: string;
+  userId: string;
+  farmId: string;
+  testDate: string;
+  source: string;
+  sampleDepth?: string;
+  soilType?: string;
+  ph?: number;
+  nitrogen?: string;
+  phosphorus?: string;
+  potassium?: string;
+  organicCarbon?: string;
+  moisturePercentage?: number;
+  healthScore?: number;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface CropObservationRecord {
+  id: string;
+  userId: string;
+  farmId: string;
+  crop: string;
+  stage: string;
+  healthScore: number;
+  ndvi?: number;
+  observationType: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface FarmAlert {
+  id: string;
+  userId: string;
+  farmId: string;
+  category: 'weather' | 'crop' | 'soil' | 'disease' | 'system';
+  title: string;
+  description: string;
+  severity: 'high' | 'medium' | 'info';
+  actionableText?: string;
+  targetRoute?: string;
+  isRead: boolean;
   createdAt: string;
 }

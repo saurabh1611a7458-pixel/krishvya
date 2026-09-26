@@ -128,7 +128,13 @@ export const TankCalculatorPage: React.FC = () => {
   const [searchParams] = useSearchParams();
 
   const [tankSize, setTankSize] = useState<number>(15);
-  const [farmAcres, setFarmAcres] = useState<number>(farm.size || 2.5);
+  const [farmAcres, setFarmAcres] = useState<number>(farm.field_area || farm.size || 2.5);
+
+  useEffect(() => {
+    if (farm.field_area || farm.size) {
+      setFarmAcres(farm.field_area || farm.size || 2.5);
+    }
+  }, [farm.id, farm.size, farm.field_area]);
   const [chemicalList, setChemicalList] = useState<ChemicalItem[]>(DEFAULT_CHEMICALS);
   const [selectedPrimaryChem, setSelectedPrimaryChem] = useState<string>('mancozeb');
   const [selectedSecondaryChem, setSelectedSecondaryChem] = useState<string>('');

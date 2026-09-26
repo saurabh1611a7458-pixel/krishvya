@@ -16,7 +16,7 @@ export const RegenerativePage: React.FC = () => {
   const [planModalOpen, setPlanModalOpen] = useState(false);
 
 
-  const score = 78;
+  const score = farm.soil?.healthScore || farm.farmHealthScore || 78;
   const circumference = 2 * Math.PI * 40;
   const strokeDashoffset = circumference - (score / 100) * circumference;
 
@@ -25,7 +25,7 @@ export const RegenerativePage: React.FC = () => {
       id: 1,
       title: 'Improve organic matter',
       points: '+5 points',
-      desc: 'Add 2 tonnes/acre composted cattle manure and retain soybean harvest crop stubble in field.',
+      desc: `Add 2 tonnes/acre composted cattle manure and retain ${farm.crop?.name || farm.crop_variety || 'crop'} harvest stubble in field.`,
     },
     {
       id: 2,

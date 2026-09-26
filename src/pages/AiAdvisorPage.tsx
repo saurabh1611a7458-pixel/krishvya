@@ -109,7 +109,7 @@ const generateDynamicQuestions = (farm: Farm, hasFarm: boolean, language: string
 };
 
 export const AiAdvisorPage: React.FC = () => {
-  const { farm, farms, user, activeUserKey } = useFarm();
+  const { farm, farms, user } = useFarm();
   const { user: clerkUser } = useUser();
   const { language } = useLanguage();
 
@@ -118,13 +118,12 @@ export const AiAdvisorPage: React.FC = () => {
 
   // Derive real user and farm identity without hardcoded fallbacks
   const realUserName =
-    (user.name && user.name !== 'Ramesh Shwet' && user.name !== 'Ramesh Singh' ? user.name : null) ||
+    user.name ||
     clerkUser?.fullName ||
     clerkUser?.firstName ||
     'Farmer';
 
-  const activeUserId =
-    activeUserKey === 'clerk' && clerkUser?.id ? clerkUser.id : (user.id || 'usr_farmer');
+  const activeUserId = clerkUser?.id || user.id || '';
 
   const hasFarm = Boolean(
     farms && farms.length > 0 && farm && farm.name

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Link } from 'react-router-dom';
 import { SignIn } from '@clerk/clerk-react';
 import {
   Sprout,
@@ -8,25 +8,12 @@ import {
   Satellite,
   Droplets,
   Sparkles,
-  UserCheck,
   CheckCircle2,
 } from 'lucide-react';
 import { ASSETS } from '../data/mockData';
 import { LanguageSelector } from '../components/common/LanguageSelector';
-import { useFarm } from '../context/FarmContext';
 
 export const LoginPage: React.FC = () => {
-  const navigate = useNavigate();
-  const { switchTestUser } = useFarm();
-  const [demoLoading, setDemoLoading] = useState<string | null>(null);
-
-  const handleDemoLogin = (userKey: 'rajesh' | 'gurpreet') => {
-    setDemoLoading(userKey);
-    switchTestUser(userKey);
-    setTimeout(() => {
-      navigate('/dashboard');
-    }, 300);
-  };
 
   return (
     <div className="min-h-screen bg-[#FBFBF7] relative flex flex-col justify-between selection:bg-krishi-100 overflow-x-hidden">
@@ -131,57 +118,6 @@ export const LoginPage: React.FC = () => {
                     },
                   }}
                 />
-              </div>
-            </div>
-
-            {/* Quick Demo Access Bar */}
-            <div className="mt-8 pt-6 border-t border-earth-100">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-earth-600 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Instant 1-Tap Demo Access</span>
-                </span>
-                <span className="text-[10px] text-gray-400 font-medium">No sign-up required</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => handleDemoLogin('rajesh')}
-                  disabled={Boolean(demoLoading)}
-                  className="flex items-center gap-2.5 p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/50 hover:bg-emerald-100/60 hover:border-emerald-300 transition-all text-left group"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                    <UserCheck className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-gray-900 truncate group-hover:text-emerald-900">
-                      Rajesh Patel
-                    </p>
-                    <p className="text-[10px] text-emerald-800 font-medium truncate">
-                      🌾 Rice • 2.5 ac • Saoner
-                    </p>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleDemoLogin('gurpreet')}
-                  disabled={Boolean(demoLoading)}
-                  className="flex items-center gap-2.5 p-2.5 rounded-xl border border-amber-200 bg-amber-50/50 hover:bg-amber-100/60 hover:border-amber-300 transition-all text-left group"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                    <UserCheck className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-gray-900 truncate group-hover:text-amber-900">
-                      Gurpreet Singh
-                    </p>
-                    <p className="text-[10px] text-amber-800 font-medium truncate">
-                      🌾 Wheat • 4.0 ac • Muzaffarpur
-                    </p>
-                  </div>
-                </button>
               </div>
             </div>
           </div>

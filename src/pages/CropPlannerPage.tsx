@@ -114,10 +114,10 @@ export const CropPlannerPage: React.FC = () => {
             <div>
               <span className="text-xs font-bold text-gray-500 uppercase">Current Standing Crop</span>
               <h3 className="text-lg font-black text-gray-900">
-                {farm.crop.name} ({farm.crop.stage}) • Harvest in ~45 days
+                {farm.crop?.name || farm.crop_variety || 'Standing Crop'} ({farm.crop?.stage || farm.crop_stage || 'Active'}) • Harvest in ~45 days
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                Target Rotation: Prepare soil for sowing within 2 weeks of soybean harvest.
+                Target Rotation: Prepare soil for sowing within 2 weeks of {farm.crop?.name || farm.crop_variety || 'crop'} harvest.
               </p>
             </div>
 

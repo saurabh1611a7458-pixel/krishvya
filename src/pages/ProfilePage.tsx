@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sidebar } from '../components/common/Sidebar';
 import { MobileBottomNav } from '../components/common/MobileBottomNav';
 import { Card } from '../components/common/Card';
@@ -20,6 +20,15 @@ export const ProfilePage: React.FC = () => {
   const [voiceEnabled, setVoiceEnabled] = useState(user.voiceAssistantEnabled);
   const [notifications, setNotifications] = useState(user.smsNotifications);
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  useEffect(() => {
+    setName(user.name || '');
+    setPhone(user.phone || '');
+    setEmail(user.email || '');
+    setLocation(user.state || '');
+    setVoiceEnabled(user.voiceAssistantEnabled ?? true);
+    setNotifications(user.smsNotifications ?? true);
+  }, [user]);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();

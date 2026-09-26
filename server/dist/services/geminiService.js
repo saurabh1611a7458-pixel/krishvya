@@ -16,69 +16,34 @@ function getGenAIClient() {
     return new GoogleGenAI({ apiKey: key.trim() });
 }
 function getAgriculturalFallbackDiagnosis(cropName = 'Soybean', notes = '') {
-    const normalizedCrop = cropName.toLowerCase();
-    const lowerNotes = notes.toLowerCase();
-    if (normalizedCrop.includes('cotton') || lowerNotes.includes('cotton')) {
-        return {
-            diseaseName: 'Cotton Leaf Curl Virus (CLCuV)',
-            scientificName: 'Begomovirus',
-            crop: 'Cotton',
-            confidence: 88,
-            severity: 'Medium',
-            symptoms: [
-                'Upward and downward curling of leaf margins',
-                'Thickening of veins on lower leaf surface',
-                'Enation (leaf-like outgrowths) under severe infection',
-            ],
-            actionSteps: [
-                'Uproot and burn severely stunted plants immediately',
-                'Install yellow sticky traps (10 per acre) to trap whitefly vectors',
-                'Spray neem seed kernel extract (NSKE 5%) or bio-pesticide in the evening',
-            ],
-            causes: [
-                'Whitefly (Bemisia tabaci) transmitting begomovirus during warm humid periods',
-            ],
-            organicTreatment: 'Spray 5% Neem Seed Kernel Extract (NSKE) @ 50ml/pump or Dashparni Ark to repel whitefly vectors.',
-            chemicalTreatment: 'Spray Diafenthiuron 50 WP @ 20g/pump (15L water) or Flonicamid 50 WG @ 6g/pump.',
-            preventativeMeasures: [
-                'Maintain clean field borders free from weeds like Abutilon indicum',
-                'Avoid excessive synthetic nitrogenous fertilizers that encourage succulent foliage',
-                'Adopt intercropping with cowpea or marigold as trap crops',
-            ],
-            precautions: 'Do not spray during peak afternoon heat. Wear protective mask and gloves.',
-            requiresExpertReview: false,
-            aiEngine: 'icar-kvk-expert-engine',
-        };
-    }
     return {
-        diseaseName: 'Soybean Rust / Yellow Mosaic',
-        scientificName: 'Phakopsora pachyrhizi / Geminivirus',
-        crop: 'Soybean',
-        confidence: 86,
-        severity: 'Medium',
+        diseaseName: 'Diagnosis Uncertain',
+        scientificName: 'Unspecified / Low Optical Telemetry',
+        crop: cropName || 'Unspecified Crop',
+        confidence: 0,
+        severity: 'Low',
         symptoms: [
-            'Small, water-soaked chlorotic spots on lower leaves',
-            'Pustules turning reddish-brown on abaxial leaf surface',
-            'Premature defoliation starting from lower canopy',
+            'Visual features in the image are ambiguous or do not match a conclusive pathology signature.',
+            'Symptoms could indicate abiotic stress (water/nutrient) or early-stage infection.',
         ],
         actionSteps: [
-            'Ensure proper drainage trenches to remove standing water',
-            'Spray broad-spectrum systemic fungicide across infected parcel',
-            'Scout daily during humid cloudy weather',
+            'Take a clear, close-up photograph of the leaf in bright natural daylight.',
+            'Ensure the affected leaf lesion is in sharp focus without hand motion or heavy shadow.',
+            'Consult your nearest Krishi Vigyan Kendra (KVK) or agricultural extension officer for on-field verification.',
         ],
         causes: [
-            'High relative humidity (>85%) combined with leaf wetness for >6 hours',
-            'Whitefly vector transmission under intermittent dry and warm spells',
+            'Inconclusive optical telemetry or ambiguous visual indicators.',
         ],
-        organicTreatment: 'Spray Pseudomonas fluorescens 1% WP @ 50g/pump or Trichoderma viride @ 5g/L on affected foliage.',
-        chemicalTreatment: 'Spray Tebuconazole 25.9% EC @ 15ml/pump or Hexaconazole 5% EC @ 20ml/pump in 15L water.',
+        organicTreatment: 'Avoid unneeded applications. Maintain good field sanitation and ensure proper irrigation drainage.',
+        chemicalTreatment: 'No chemical dosage recommended: diagnosis is uncertain. Do NOT apply unverified fungicides or pesticides without an agronomist confirmation.',
         preventativeMeasures: [
-            'Use certified seeds of resistant varieties (JS 97-52, NRC 37)',
-            'Follow recommended seed treatment with Trichoderma (5g/kg seed)',
-            'Maintain 45 cm row-to-row spacing for optimal air circulation',
+            'Regularly scout upper and lower leaf surfaces.',
+            'Maintain adequate row spacing for ventilation and avoid overhead sprinkler watering in late evening.',
         ],
-        precautions: 'Do not spray during active honeybee foraging hours (morning 8-11 AM).',
-        requiresExpertReview: false,
+        precautions: 'Never apply chemical treatments or unknown dosages without a verified diagnosis from an agricultural authority.',
+        requiresExpertReview: true,
+        isUncertain: true,
+        uncertaintyMessage: 'Diagnosis is uncertain. To protect crop safety, soil microbiome, and farmer investment, chemical dosages are not provided.',
         aiEngine: 'icar-kvk-expert-engine',
     };
 }
@@ -98,11 +63,35 @@ export async function diagnoseCropDisease(imageBase64, mimeType = 'image/jpeg', 
                 console.log(`Diagnosing ${cropName} leaf disease with ${model}...`);
                 const base64Clean = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
                 const prompt = `You are an expert plant pathologist and agricultural scientist specializing in Indian crops.
-Analyze this crop leaf image for disease, pest damage, or nutrient deficiency.
-Target Crop: ${cropName}
+Analyze this crop leaf or plant image for disease, weed identification, pest damage, or nutrient deficiency.
+Target Crop/Plant: ${cropName}
 Farmer Notes: ${notes || 'None provided'}
 
-Provide a structured, precise diagnosis in JSON format with fields: diseaseName, scientificName, crop, confidence (60-99), severity, symptoms, actionSteps, causes, organicTreatment, chemicalTreatment, preventativeMeasures, precautions, requiresExpertReview.
+CRITICAL SAFETY RULES:
+1. If the image is blurry, ambiguous, low-light, does not clearly show plant pathology, or confidence is under 65%:
+   - Set "isUncertain": true
+   - Set "diseaseName": "Diagnosis Uncertain"
+   - Set "chemicalTreatment": "No chemical dosage recommended: diagnosis is uncertain. Do not apply unverified chemicals."
+   - Set "uncertaintyMessage": "Image lacks sufficient visual clarity for a verified pathology diagnosis. Consult a local KVK agronomist."
+2. NEVER invent chemical dosages or make up pesticide rates when uncertain.
+
+Provide a structured, precise diagnosis in JSON format with fields:
+- diseaseName (string)
+- scientificName (string)
+- crop (string)
+- confidence (number 0-99)
+- severity ('Low' | 'Medium' | 'High' | 'Critical')
+- symptoms (string[])
+- actionSteps (string[])
+- causes (string[])
+- organicTreatment (string)
+- chemicalTreatment (string)
+- preventativeMeasures (string[])
+- precautions (string)
+- requiresExpertReview (boolean)
+- isUncertain (boolean)
+- uncertaintyMessage (string, optional)
+
 Return ONLY valid JSON.`;
                 const response = await aiClient.models.generateContent({
                     model,

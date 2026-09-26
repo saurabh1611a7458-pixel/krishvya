@@ -8,14 +8,17 @@ import {
   Sparkles,
   RefreshCw,
 } from 'lucide-react';
+import { useFarm } from '../context/FarmContext';
 
 export const WhatIfPage: React.FC = () => {
+  const { farm } = useFarm();
+  const cropName = farm.crop?.name || farm.crop_variety || 'Standing Crop';
 
   const [rainfallShift, setRainfallShift] = useState<number>(-20);
   const [activeScenario, setActiveScenario] = useState<string>('Rainfall -20%');
 
   // Dynamically calculate simulation consequences based on rainfall shift
-  const baseYield = 22;
+  const baseYield = Math.round((farm.field_area || farm.size || 2.5) * 8.8);
   const yieldImpact = Math.round(baseYield * (1 + rainfallShift / 100 * 0.9));
   const waterReqChange = rainfallShift < 0 ? Math.abs(rainfallShift) * 0.75 : -(rainfallShift * 0.6);
   const stressLevel = rainfallShift <= -25 ? 'Critical' : rainfallShift < 0 ? 'High' : rainfallShift === 0 ? 'Normal' : 'Optimal';
@@ -25,7 +28,7 @@ export const WhatIfPage: React.FC = () => {
     { name: 'Higher temperature (+2°C)', shift: -25, label: 'Higher temperature' },
     { name: 'Use more compost (+30%)', shift: 15, label: 'Use more compost' },
     { name: 'Increase organic matter', shift: 20, label: 'Increase organic matter' },
-    { name: 'Change crop to Chickpea', shift: 10, label: 'Change crop' },
+    { name: `Change crop to Chickpea`, shift: 10, label: `Change crop` },
   ];
 
   const handleApplyScenario = (label: string, shift: number) => {
@@ -46,7 +49,7 @@ export const WhatIfPage: React.FC = () => {
                 What-If Simulator
               </h1>
             </div>
-            <p className="text-xs text-gray-500">Explore the yield and economic impact of different climate scenarios</p>
+            <p className="text-xs text-gray-500">Explore yield & climate scenarios for {farm.name || 'your farm'} ({cropName})</p>
           </div>
 
           <span className="text-xs font-bold text-gray-600 bg-earth-100 px-3 py-1 rounded-full">
@@ -164,7 +167,7 @@ export const WhatIfPage: React.FC = () => {
                     <span className="text-xs text-gray-500 block">Expected Yield</span>
                     <div className="flex items-baseline gap-2 mt-1">
                       <span className="text-3xl font-black text-gray-900">{yieldImpact}</span>
-                      <span className="text-xs text-gray-400 line-through">22 quintals</span>
+                      <span className="text-xs text-gray-400 line-through">{baseYield} quintals</span>
                     </div>
                     <span className="text-[11px] font-semibold text-red-600 block mt-0.5">
                       {Math.round(((yieldImpact - baseYield) / baseYield) * 100)}% shift

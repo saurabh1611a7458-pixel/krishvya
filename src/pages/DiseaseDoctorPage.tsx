@@ -77,7 +77,7 @@ export const DiseaseDoctorPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [analyzing, setAnalyzing] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string>(ASSETS.cropLeaf);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showTips, setShowTips] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
@@ -90,58 +90,25 @@ export const DiseaseDoctorPage: React.FC = () => {
   // Historical scans loaded from Supabase
   const [recentScans, setRecentScans] = useState<DiseaseScan[]>([]);
 
-  // Current Active Diagnosis State
-  const [activeScan, setActiveScan] = useState<DiseaseScan>({
-    id: 'scan_initial',
-    userId: user?.id || 'usr_default',
-    farmId: farm?.id || 'farm_default',
-    imageUrl: ASSETS.cropLeaf,
-    crop: farm.crop?.name || 'Soybean',
-    detectedProblem: 'Early Leaf Spot',
-    scientificName: 'Cercospora sojina & Alternaria',
-    severity: 'Medium',
-    confidence: 92,
-    symptoms: [
-      'Circular to angular reddish-brown lesions with distinct dark borders',
-      'Target-like concentric rings visible on lower leaves',
-      'Premature leaf yellowing and dropping in moist conditions',
-    ],
-    actionSteps: [
-      'Remove and destroy heavily spotted lower leaves to stop fungal splash',
-      'Monitor nearby plants daily and keep furrow drainage clear',
-      'Apply bio-fungicide or follow verified label guidance if spots spread',
-    ],
-    causes: [
-      'High canopy humidity combined with warm daytime temperatures (25–30°C)',
-      'Soil splash onto lower leaves during irrigation or rain showers',
-    ],
-    organicTreatment:
-      'Spray Trichoderma viride @ 5g/L + Neem Oil (10,000 ppm) @ 3ml/L. Repeat after 10 days.',
-    chemicalTreatment:
-      'Mancozeb 75% WP @ 2.5g/L or Pyraclostrobin 20% WG @ 1g/L applied evenly on foliage.',
-    preventativeMeasures: [
-      'Avoid overhead sprinkler irrigation late in the evening',
-      'Maintain 45 cm row spacing for good air circulation',
-      'Collect and destroy infected crop residue after harvest',
-    ],
-    precautions:
-      'Always follow the exact product label instructions and wear gloves/mask. Consult your local Krishi Vigyan Kendra (KVK) for regional chemical advice.',
-    isUncertain: false,
-    createdAt: new Date().toISOString(),
-  });
+  // Current Active Diagnosis State (null until user scans or previous scan loaded)
+  const [activeScan, setActiveScan] = useState<DiseaseScan | null>(null);
 
   // Load scan history from Supabase strictly scoped to user and farm
   useEffect(() => {
-    if (!user?.id || !farm?.id) return;
+    if (!farm?.id) return;
+    const userId = user?.id || farm.user_id;
+    if (!userId) return;
     let isMounted = true;
 
-    supabaseService.getDiseaseScans(user.id, farm.id).then((scans) => {
+    supabaseService.getDiseaseScans(userId, farm.id).then((scans) => {
       if (isMounted) {
         setRecentScans(scans);
-        // If there is already a recent scan in Supabase for this farm, show the latest one
-        if (scans.length > 0 && activeScan.id === 'scan_initial') {
+        if (scans.length > 0) {
           setActiveScan(scans[0]);
           setSelectedImage(scans[0].imageUrl);
+        } else {
+          setActiveScan(null);
+          setSelectedImage(null);
         }
       }
     });
@@ -149,11 +116,15 @@ export const DiseaseDoctorPage: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [user?.id, farm?.id]);
+  }, [user?.id, farm?.id, farm?.user_id]);
 
   // Run Gemini Multimodal Vision AI Analysis
   const handleAnalyzeImage = async (base64Img: string, cropOverride?: string) => {
-    const targetCrop = cropOverride || farm.crop?.name || 'Soybean';
+    const targetCrop = cropOverride || farm.crop?.name || farm.crop_variety || 'General Crop';
+    const userId = user?.id || farm.user_id;
+    const farmId = farm.id;
+    if (!userId || !farmId) return;
+
     setAnalyzing(true);
     setShowDetails(false);
 
@@ -166,8 +137,8 @@ export const DiseaseDoctorPage: React.FC = () => {
         const d = res.data;
         const newScan: DiseaseScan = {
           id: `scan_${Date.now()}`,
-          userId: user?.id || 'usr_default',
-          farmId: farm?.id || 'farm_default',
+          userId,
+          farmId,
           imageUrl: base64Img,
           crop: d.crop || targetCrop,
           detectedProblem: d.diseaseName || 'Crop Health Check',
@@ -249,10 +220,11 @@ export const DiseaseDoctorPage: React.FC = () => {
 
   // Escalate to live Agronomist Desk via ProblemCase
   const handleEscalateToExpert = async () => {
+    if (!activeScan) return;
     setExpertSubmitting(true);
     try {
       const problemTitle = `🩺 Crop Doctor AI Escalation: ${activeScan.detectedProblem}`;
-      const desc = `${problemTitle}. Farmer ${user.name || 'Farmer'} scanned ${activeScan.crop} leaf. Identified: ${activeScan.detectedProblem} (${activeScan.confidence}% confidence, ${activeScan.severity} severity). Symptoms: ${activeScan.symptoms.slice(0, 2).join('; ')}`;
+      const desc = `${problemTitle}. Farmer ${user?.name || 'Farmer'} scanned ${activeScan.crop} leaf. Identified: ${activeScan.detectedProblem} (${activeScan.confidence}% confidence, ${activeScan.severity} severity). Symptoms: ${activeScan.symptoms?.slice(0, 2).join('; ') || ''}`;
 
       const newCase = submitProblem('disease_pest', desc);
 
@@ -268,6 +240,9 @@ export const DiseaseDoctorPage: React.FC = () => {
 
   // Severity color badge & dot
   const severityBadge = useMemo(() => {
+    if (!activeScan) {
+      return { dot: 'bg-gray-400', badge: 'bg-gray-100 text-gray-700 border-gray-200', label: 'No Active Scan' };
+    }
     const s = (activeScan.severity || 'Medium').toLowerCase();
     if (s === 'low') {
       return {
@@ -295,7 +270,7 @@ export const DiseaseDoctorPage: React.FC = () => {
       badge: 'bg-amber-100 text-amber-800 border-amber-200',
       label: 'Medium Severity',
     };
-  }, [activeScan.severity]);
+  }, [activeScan?.severity]);
 
   return (
     <div className="min-h-screen bg-[#FBFBF7] flex">
@@ -477,7 +452,7 @@ export const DiseaseDoctorPage: React.FC = () => {
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {recentScans.slice(0, 4).map((scan) => {
-                      const isActive = scan.id === activeScan.id;
+                      const isActive = scan.id === activeScan?.id;
                       return (
                         <button
                           key={scan.id}
@@ -518,6 +493,31 @@ export const DiseaseDoctorPage: React.FC = () => {
                     </p>
                   </div>
                 </Card>
+              ) : !activeScan ? (
+                /* Empty State Card when no scan is yet loaded or performed */
+                <Card className="p-8 sm:p-12 text-center space-y-4 border-earth-200 shadow-sm bg-white">
+                  <div className="w-16 h-16 rounded-2xl bg-krishi-50 text-krishi-700 flex items-center justify-center mx-auto border border-krishi-200">
+                    <Leaf className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-black text-gray-900">
+                      Ready for Leaf Diagnosis
+                    </h3>
+                    <p className="text-xs text-gray-500 max-w-md mx-auto">
+                      Take or upload a photo of any leaf showing lesions, curling, or discoloration on {farm.name || 'your farm'}. Gemini Vision AI will analyze symptoms and provide verified agronomic treatment.
+                    </p>
+                  </div>
+                  <div className="flex justify-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-krishi-700 hover:bg-krishi-800 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>Take Leaf Photo</span>
+                    </button>
+                  </div>
+                </Card>
               ) : (
                 /* 3. SIMPLE RESULT CARD */
                 <Card className="p-5 sm:p-6 space-y-5 border-earth-200 shadow-sm bg-white">
@@ -525,7 +525,7 @@ export const DiseaseDoctorPage: React.FC = () => {
                   <div className="flex items-start gap-3.5 pb-4 border-b border-earth-100">
                     <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden bg-gray-100 border-2 border-earth-200 shrink-0 shadow-2xs">
                       <img
-                        src={selectedImage}
+                        src={selectedImage || activeScan.imageUrl || ''}
                         alt="Scanned leaf"
                         className="w-full h-full object-cover"
                       />
@@ -647,7 +647,17 @@ export const DiseaseDoctorPage: React.FC = () => {
                           </div>
                         )}
 
-                        {activeScan.chemicalTreatment && (
+                        {activeScan.isUncertain ? (
+                          <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase">
+                              <Sparkles className="w-3.5 h-3.5 text-gray-500" />
+                              <span>Chemical Dosage Status</span>
+                            </div>
+                            <p className="text-xs text-gray-600 leading-relaxed font-medium">
+                              Withheld: Diagnosis is uncertain. Do NOT apply unverified chemicals or pesticides without in-person confirmation from an agronomist.
+                            </p>
+                          </div>
+                        ) : activeScan.chemicalTreatment ? (
                           <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 space-y-1">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900 uppercase">
                               <Sparkles className="w-3.5 h-3.5 text-blue-700" />
@@ -657,7 +667,7 @@ export const DiseaseDoctorPage: React.FC = () => {
                               {activeScan.chemicalTreatment}
                             </p>
                           </div>
-                        )}
+                        ) : null}
                       </div>
 
                       {/* Knapsack Doser Shortcut */}
@@ -737,7 +747,7 @@ export const DiseaseDoctorPage: React.FC = () => {
           <div className="p-3 bg-white rounded-xl border border-earth-200 space-y-1">
             <span className="text-xs text-gray-400 block uppercase font-bold">Case to Forward:</span>
             <p className="font-bold text-gray-900">
-              {activeScan.crop} • {activeScan.detectedProblem}
+              {activeScan ? `${activeScan.crop} • ${activeScan.detectedProblem}` : 'Crop Scan Consultation'}
             </p>
             <p className="text-xs text-gray-600">
               Location: {farm.location?.district || 'Your Farm'}, {farm.location?.state || 'India'}

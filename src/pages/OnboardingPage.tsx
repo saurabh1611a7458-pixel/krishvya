@@ -43,7 +43,7 @@ export const OnboardingPage: React.FC = () => {
   const navigate = useNavigate();
   const { user: clerkUser } = useUser();
   const { t } = useLanguage();
-  const { farm, farms, updateFarm, createFarm, setIsNewUser, user, activeUserKey } = useFarm();
+  const { farm, farms, updateFarm, createFarm, setIsNewUser, user } = useFarm();
 
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
@@ -65,7 +65,7 @@ export const OnboardingPage: React.FC = () => {
     } else {
       setSubmitting(true);
       try {
-        const ownerId = activeUserKey === 'clerk' && clerkUser?.id ? clerkUser.id : user.id;
+        const ownerId = clerkUser?.id || user.id;
         const hasExistingOwnedFarm = farms.some((f) => f.ownerId === ownerId);
 
         if (!hasExistingOwnedFarm || farms.length === 0) {

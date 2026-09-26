@@ -17,6 +17,7 @@ import { calculateDynamicCropStage } from '../utils/cropStageUtils';
 import { calculateFarmHealthScore } from '../utils/healthScoreUtils';
 import { api } from '../services/api';
 import { reverseGeocode, searchGlobalLocations } from '../services/geocodingService';
+import { supabaseService } from '../services/supabaseService';
 import {
   Trees,
   Edit,
@@ -28,11 +29,13 @@ import {
   MapPin,
   CheckCircle2,
   AlertCircle,
-
   Sprout,
   Sparkles,
   User,
   Trash2,
+  Activity,
+  BarChart2,
+  Clock,
 } from 'lucide-react';
 
 export const FarmPage: React.FC = () => {
@@ -45,10 +48,9 @@ export const FarmPage: React.FC = () => {
     updateFarm,
     createFarm,
     deleteFarm,
-    activeUserKey,
-    switchTestUser,
     isLoading,
     isSyncingAuth,
+    problemCases,
   } = useFarm();
   const { t } = useLanguage();
 
@@ -84,40 +86,41 @@ export const FarmPage: React.FC = () => {
 
   const [editFormData, setEditFormData] = useState({
     name: farm.name || '',
-    address: farm.location?.address || '',
+    address: farm.location?.address || farm.location_address || '',
     district: farm.location?.district || '',
     state: farm.location?.state || '',
-    size: farm.size || 0,
-    cropName: farm.crop?.name || '',
-    cropVariety: farm.crop?.variety || '',
-    sowingDate: farm.crop?.sowingDate || '',
-    soilType: farm.soil?.soilType || '',
-    irrigationType: farm.irrigationType || 'Drip',
+    size: farm.size || farm.field_area || 0,
+    cropName: farm.crop?.name || farm.crop_variety || '',
+    cropVariety: farm.crop?.variety || farm.crop_variety || '',
+    sowingDate: farm.crop?.sowingDate || farm.sowing_date || '',
+    soilType: farm.soil?.soilType || farm.soil_type || '',
+    irrigationType: farm.irrigationType || farm.irrigation_type || '',
   });
 
   // Open Edit Modal with fresh coordinates and boundary
   const handleOpenEditModal = () => {
-    const lat = farm.location?.latitude || 0;
-    const lon = farm.location?.longitude || 0;
+    const lat = farm.location?.latitude || farm.latitude || 0;
+    const lon = farm.location?.longitude || farm.longitude || 0;
+    const farmArea = farm.field_area || farm.size || 0;
     setEditFormData({
-      name: farm.name || '',
-      address: farm.location?.address || '',
+      name: farm.name || farm.farm_name || '',
+      address: farm.location?.address || farm.location_address || '',
       district: farm.location?.district || '',
       state: farm.location?.state || '',
-      size: farm.size || 0,
-      cropName: farm.crop?.name || '',
-      cropVariety: farm.crop?.variety || '',
-      sowingDate: farm.crop?.sowingDate || '',
-      soilType: farm.soil?.soilType || '',
-      irrigationType: farm.irrigationType || 'Drip',
+      size: farmArea,
+      cropName: farm.crop?.name || farm.crop_variety || '',
+      cropVariety: farm.crop?.variety || farm.crop_variety || '',
+      sowingDate: farm.crop?.sowingDate || farm.sowing_date || '',
+      soilType: farm.soil?.soilType || farm.soil_type || '',
+      irrigationType: farm.irrigationType || farm.irrigation_type || '',
     });
     setModalLat(lat);
     setModalLon(lon);
     setModalBoundary(
       workingBoundary.length >= 3
         ? workingBoundary
-        : lat !== 0 && lon !== 0
-        ? generateDefaultBoundary(lat, lon, farm.size || 2.5)
+        : lat !== 0 && lon !== 0 && farmArea > 0
+        ? generateDefaultBoundary(lat, lon, farmArea)
         : []
     );
     setIsEditModalOpen(true);
@@ -145,7 +148,7 @@ export const FarmPage: React.FC = () => {
       district: res.district || prev.district,
       state: res.state || prev.state,
     }));
-    const curSize = Number(editFormData.size) || farm.size || 2.5;
+    const curSize = Number(editFormData.size) || farm.size || 1;
     setModalBoundary(generateDefaultBoundary(res.lat, res.lon, curSize));
   };
 
@@ -158,7 +161,7 @@ export const FarmPage: React.FC = () => {
         const { latitude, longitude } = pos.coords;
         setModalLat(latitude);
         setModalLon(longitude);
-        const curSize = Number(editFormData.size) || farm.size || 2.5;
+        const curSize = Number(editFormData.size) || farm.size || 1;
         setModalBoundary(generateDefaultBoundary(latitude, longitude, curSize));
         try {
           const rev = await reverseGeocode(latitude, longitude);
@@ -182,22 +185,98 @@ export const FarmPage: React.FC = () => {
     );
   };
 
-  // Add New Farm Modal State
+  // Add New Farm Modal State - No fabricated default values
   const [isAddFarmModalOpen, setIsAddFarmModalOpen] = useState(false);
   const [newFarmFormData, setNewFarmFormData] = useState({
     name: '',
     address: '',
     district: user.district || '',
     state: user.state || '',
-    size: 2.0,
+    size: '' as string | number,
     cropName: '',
     cropVariety: '',
-    sowingDate: new Date().toISOString().split('T')[0],
-    soilType: 'Loamy',
-    irrigationType: 'Drip' as const,
+    sowingDate: '',
+    soilType: '',
+    irrigationType: '',
     lat: 0,
     lon: 0,
   });
+
+  // Dynamic farm activities state & listener
+  const [farmEvents, setFarmEvents] = useState<any[]>([]);
+  const [loadingActivities, setLoadingActivities] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadEvents = async () => {
+      const ownerId = user.id;
+      if (!ownerId || !farm.id) {
+        setFarmEvents([]);
+        return;
+      }
+      setLoadingActivities(true);
+      try {
+        const events = await supabaseService.getFarmEvents(ownerId, farm.id);
+        if (isMounted) {
+          setFarmEvents(events || []);
+        }
+      } catch (e) {
+        if (isMounted) setFarmEvents([]);
+      } finally {
+        if (isMounted) setLoadingActivities(false);
+      }
+    };
+    loadEvents();
+    return () => {
+      isMounted = false;
+    };
+  }, [user.id, farm.id]);
+
+  const activeFarmCases = useMemo(() => {
+    return (problemCases || []).filter((c) => c.farmId === farm.id && c.status !== 'resolved');
+  }, [problemCases, farm.id]);
+
+  const allActivities = useMemo(() => {
+    const list: Array<{ id: string; title: string; description?: string; timestamp: string; type: string }> = [];
+
+    // 1. Supabase Farm Events
+    farmEvents.forEach((ev) => {
+      list.push({
+        id: ev.id || `ev_${Math.random()}`,
+        title: ev.title || ev.event_type || 'Farm Event',
+        description: ev.description || '',
+        timestamp: ev.created_at || new Date().toISOString(),
+        type: 'event',
+      });
+    });
+
+    // 2. Problem cases reported for this parcel
+    (problemCases || [])
+      .filter((c) => c.farmId === farm.id)
+      .forEach((c) => {
+        list.push({
+          id: c.id,
+          title: c.title || `${c.category.replace(/_/g, ' ')}`,
+          description: c.description || c.aiRecommendation || '',
+          timestamp: c.createdAt,
+          type: 'problem',
+        });
+      });
+
+    // 3. Sowing event if registered
+    if (farm.crop?.sowingDate || farm.sowing_date) {
+      const sDate = farm.crop?.sowingDate || farm.sowing_date;
+      list.push({
+        id: `sowing_${farm.id}`,
+        title: `${farm.crop?.name || farm.crop_variety || 'Crop'} Sowing Recorded`,
+        description: `Sowing date registered: ${sDate}${farm.crop?.variety ? ` (Variety: ${farm.crop.variety})` : ''}`,
+        timestamp: sDate || new Date().toISOString(),
+        type: 'sowing',
+      });
+    }
+
+    return list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [farmEvents, problemCases, farm.id, farm.crop?.name, farm.crop?.variety, farm.crop?.sowingDate, farm.sowing_date, farm.crop_variety]);
 
   // Sync working boundary and modal coordinates whenever farm changes
   useEffect(() => {
@@ -209,22 +288,21 @@ export const FarmPage: React.FC = () => {
     // Update edit form data when farm changes (only if modal not actively open)
     if (!isEditModalOpen) {
       setEditFormData({
-        name: farm.name || '',
-        address: farm.location?.address || '',
+        name: farm.name || farm.farm_name || '',
+        address: farm.location?.address || farm.location_address || '',
         district: farm.location?.district || '',
         state: farm.location?.state || '',
-        size: farm.size || 0,
-        cropName: farm.crop?.name || '',
-        cropVariety: farm.crop?.variety || '',
-        sowingDate: farm.crop?.sowingDate || '',
-        soilType: farm.soil?.soilType || '',
-        irrigationType: farm.irrigationType || 'Drip',
+        size: farm.size || farm.field_area || 0,
+        cropName: farm.crop?.name || farm.crop_variety || '',
+        cropVariety: farm.crop?.variety || farm.crop_variety || '',
+        sowingDate: farm.crop?.sowingDate || farm.sowing_date || '',
+        soilType: farm.soil?.soilType || farm.soil_type || '',
+        irrigationType: farm.irrigationType || farm.irrigation_type || '',
       });
-      setModalLat(farm.location?.latitude || 0);
-      setModalLon(farm.location?.longitude || 0);
+      setModalLat(farm.location?.latitude || farm.latitude || 0);
+      setModalLon(farm.location?.longitude || farm.longitude || 0);
     }
   }, [farm, isEditModalOpen]);
-
 
   // Live acreage calculated dynamically from the polygon vertices when present
   const liveBoundaryAcreage = useMemo(() => {
@@ -277,7 +355,12 @@ export const FarmPage: React.FC = () => {
 
   // Initialize boundary if none exists
   const handleStartAddBoundary = () => {
-    const initial = generateDefaultBoundary(farmLat, farmLon, farm.size > 0 ? farm.size : 2.5);
+    if (!hasCoordinates) {
+      handleOpenEditModal();
+      return;
+    }
+    const defaultSize = farm.size > 0 ? farm.size : 1;
+    const initial = generateDefaultBoundary(farmLat, farmLon, defaultSize);
     setWorkingBoundary(initial);
     setIsEditing(true);
   };
@@ -309,6 +392,16 @@ export const FarmPage: React.FC = () => {
         },
       });
 
+      // Log boundary update event
+      if (user.id && farm.id) {
+        supabaseService.logFarmEvent(
+          user.id,
+          farm.id,
+          'boundary_updated',
+          `Mapped ${workingBoundary.length} boundary vertices (${newSize.toFixed(2)} acres)`
+        ).catch(console.warn);
+      }
+
       setSaveSuccess(true);
       setIsEditing(false);
       setTimeout(() => setSaveSuccess(false), 4000);
@@ -319,12 +412,12 @@ export const FarmPage: React.FC = () => {
     }
   };
 
-  // Save Farm Details from Edit Modal
+  // Save Farm Details from Edit Modal - Supabase first flow
   const handleSaveFarmDetails = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      const newSize = Number(editFormData.size) || farm.size || 2.5;
+      const newSize = Number(editFormData.size) || farm.size || 0;
       let targetLat = modalLat;
       let targetLon = modalLon;
       let targetBoundary = modalBoundary;
@@ -343,7 +436,7 @@ export const FarmPage: React.FC = () => {
           if (geoRes && geoRes.length > 0) {
             targetLat = geoRes[0].lat;
             targetLon = geoRes[0].lon;
-            targetBoundary = generateDefaultBoundary(targetLat, targetLon, newSize);
+            targetBoundary = generateDefaultBoundary(targetLat, targetLon, newSize > 0 ? newSize : 1);
           }
         } catch (geoErr) {
           console.warn('Geocoding fallback during save:', geoErr);
@@ -352,21 +445,22 @@ export const FarmPage: React.FC = () => {
 
       // Check boundary alignment with target coordinates
       if (targetLat !== 0 && targetLon !== 0) {
-        if (targetBoundary.length < 3) {
+        if (targetBoundary.length < 3 && newSize > 0) {
           targetBoundary = generateDefaultBoundary(targetLat, targetLon, newSize);
-        } else {
+        } else if (targetBoundary.length >= 3) {
           const c = calculateCentroid(targetBoundary);
           const dist = Math.hypot(c[0] - targetLat, c[1] - targetLon);
-          if (dist > 0.05) {
+          if (dist > 0.05 && newSize > 0) {
             targetBoundary = generateDefaultBoundary(targetLat, targetLon, newSize);
           }
         }
       }
 
+      // Supabase UPDATE first, then refreshes FarmContext
       await updateFarm({
         name: editFormData.name.trim() || farm.name,
         size: newSize,
-        irrigationType: editFormData.irrigationType as any,
+        irrigationType: (editFormData.irrigationType as any) || '',
         location: {
           ...farm.location,
           address: enteredAddr || farm.location.address,
@@ -382,7 +476,7 @@ export const FarmPage: React.FC = () => {
           name: editFormData.cropName.trim(),
           variety: editFormData.cropVariety.trim(),
           sowingDate: editFormData.sowingDate,
-          stage: modalCropStage.stage,
+          stage: editFormData.sowingDate ? modalCropStage.stage : '',
         },
         soil: {
           ...farm.soil,
@@ -392,6 +486,16 @@ export const FarmPage: React.FC = () => {
 
       if (targetBoundary.length >= 3) {
         setWorkingBoundary(targetBoundary);
+      }
+
+      // Log update event
+      if (user.id && farm.id) {
+        supabaseService.logFarmEvent(
+          user.id,
+          farm.id,
+          'farm_updated',
+          `Updated properties for ${editFormData.name.trim() || farm.name}`
+        ).catch(console.warn);
       }
 
       // Refresh live weather for updated coordinates
@@ -426,7 +530,7 @@ export const FarmPage: React.FC = () => {
     }
   };
 
-  // Handle Add New Farm
+  // Handle Add New Farm - Supabase first flow
   const handleCreateNewFarm = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -444,16 +548,16 @@ export const FarmPage: React.FC = () => {
         } catch (e) {}
       }
 
-      const farmSize = Number(newFarmFormData.size) || 2.0;
-      const boundary = lat !== 0 && lon !== 0 ? generateDefaultBoundary(lat, lon, farmSize) : undefined;
+      const farmSize = Number(newFarmFormData.size) || 0;
+      const boundary = lat !== 0 && lon !== 0 && farmSize > 0 ? generateDefaultBoundary(lat, lon, farmSize) : undefined;
 
       const created = await createFarm({
-        name: newFarmFormData.name.trim() || 'New Farm Parcel',
+        name: newFarmFormData.name.trim() || 'My Farm Parcel',
         size: farmSize,
-        irrigationType: newFarmFormData.irrigationType,
+        irrigationType: (newFarmFormData.irrigationType as any) || undefined,
         boundaryVertices: boundary,
         location: {
-          address: addr || `${newFarmFormData.district || user.district || 'Farm'}, ${newFarmFormData.state || user.state || 'India'}`,
+          address: addr || (newFarmFormData.district ? `${newFarmFormData.district}, ${newFarmFormData.state}` : ''),
           district: newFarmFormData.district.trim() || user.district || '',
           state: newFarmFormData.state.trim() || user.state || '',
           latitude: lat,
@@ -462,26 +566,52 @@ export const FarmPage: React.FC = () => {
         },
         crop: {
           id: `crop_${Date.now()}`,
-          name: newFarmFormData.cropName.trim() || 'Soybean',
-          variety: newFarmFormData.cropVariety.trim() || 'Standard Variety',
-          stage: 'Seedling',
-          sowingDate: newFarmFormData.sowingDate || new Date().toISOString().split('T')[0],
+          name: newFarmFormData.cropName.trim(),
+          variety: newFarmFormData.cropVariety.trim(),
+          stage: newFarmFormData.sowingDate ? 'Seedling' : '',
+          sowingDate: newFarmFormData.sowingDate,
         },
         soil: {
-          healthScore: 78,
-          nitrogen: 'Good',
+          healthScore: 0,
+          nitrogen: 'Medium',
           phosphorus: 'Medium',
-          potassium: 'Good',
-          ph: 6.8,
-          organicCarbon: 'Medium (0.6%)',
-          moisturePercentage: 42,
-          soilType: newFarmFormData.soilType.trim() || 'Loamy',
+          potassium: 'Medium',
+          ph: 7.0,
+          organicCarbon: '',
+          moisturePercentage: 0,
+          soilType: newFarmFormData.soilType.trim(),
         },
       });
+
       if (created && created.id) {
         selectFarm(created.id);
       }
+
+      // Log creation event
+      if (user.id && created?.id) {
+        supabaseService.logFarmEvent(
+          user.id,
+          created.id,
+          'farm_created',
+          `Registered new parcel ${created.name}`
+        ).catch(console.warn);
+      }
+
       setIsAddFarmModalOpen(false);
+      setNewFarmFormData({
+        name: '',
+        address: '',
+        district: user.district || '',
+        state: user.state || '',
+        size: '',
+        cropName: '',
+        cropVariety: '',
+        sowingDate: '',
+        soilType: '',
+        irrigationType: '',
+        lat: 0,
+        lon: 0,
+      });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 4000);
     } catch (err) {
@@ -615,11 +745,10 @@ export const FarmPage: React.FC = () => {
                 {t('myFarm')}
               </h1>
 
-              {/* Dynamic User Welcome Badge - Never Ramesh Shwet unless logged in as Ramesh */}
+              {/* Dynamic User Welcome Badge - Zero Hardcoded Names */}
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-krishi-50 text-krishi-900 border border-krishi-200">
                 <User className="w-3.5 h-3.5 text-krishi-600" />
-                <span>Welcome, {user.name || 'Farmer'}</span>
-                {user.email && <span className="text-krishi-700 font-medium">({user.email})</span>}
+                <span>{user.name ? `Welcome, ${user.name}` : (user.email ? `User: ${user.email}` : 'Authenticated')}</span>
               </span>
 
               {saveSuccess && (
@@ -637,51 +766,6 @@ export const FarmPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-start sm:justify-end">
-            {/* Multi-User Isolation Switcher (For Testing & Verification) */}
-            {switchTestUser && (
-              <div className="flex items-center gap-1 p-1 bg-earth-100 rounded-xl text-xs border border-earth-200">
-                <span className="text-[10px] uppercase font-bold text-gray-500 px-1.5 hidden md:inline">
-                  Test User:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => switchTestUser('clerk')}
-                  className={`px-2 py-1 rounded-lg font-bold transition-all ${
-                    activeUserKey === 'clerk'
-                      ? 'bg-white text-krishi-800 shadow-2xs'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                  title="Switch to active authenticated user"
-                >
-                  Active User
-                </button>
-                <button
-                  type="button"
-                  onClick={() => switchTestUser('rajesh')}
-                  className={`px-2 py-1 rounded-lg font-bold transition-all ${
-                    activeUserKey === 'rajesh'
-                      ? 'bg-emerald-600 text-white shadow-2xs'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                  title="Switch to Rajesh Patel (Gujarat Cotton)"
-                >
-                  Rajesh (GJ)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => switchTestUser('gurpreet')}
-                  className={`px-2 py-1 rounded-lg font-bold transition-all ${
-                    activeUserKey === 'gurpreet'
-                      ? 'bg-amber-600 text-white shadow-2xs'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                  title="Switch to Gurpreet Singh (Punjab Wheat)"
-                >
-                  Gurpreet (PB)
-                </button>
-              </div>
-            )}
-
             {farms.length > 0 ? (
               <>
                 {/* GPS Location Button */}
@@ -993,18 +1077,83 @@ export const FarmPage: React.FC = () => {
                   </div>
                 </div>
               </Card>
+
+              {/* Dynamic Farm Statistics Card */}
+              <Card className="p-6">
+                <div className="flex items-center justify-between pb-3 border-b border-earth-100 mb-4">
+                  <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                    <BarChart2 className="w-4 h-4 text-krishi-600" />
+                    <span>Farm Statistics & Telemetry</span>
+                  </h3>
+                  <span className="text-[11px] font-semibold text-gray-500 bg-earth-100 px-2 py-0.5 rounded-full">
+                    Live Farm Metrics
+                  </span>
+                </div>
+
+                {displayAcreage > 0 || cropStageInfo.status === 'valid' || workingBoundary.length >= 3 || activeFarmCases.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3 bg-earth-50/70 rounded-xl border border-earth-200/70">
+                      <span className="text-[10px] text-gray-500 font-bold uppercase block">Field Area</span>
+                      <strong className="text-base font-black text-gray-900 block mt-0.5">
+                        {displayAcreage > 0 ? `${displayAcreage} ${farm.sizeUnit || 'ac'}` : '—'}
+                      </strong>
+                      <span className="text-[10px] text-gray-400">
+                        {workingBoundary.length >= 3 ? 'Polygon mapped' : (displayAcreage > 0 ? 'Saved area' : 'Not specified')}
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-earth-50/70 rounded-xl border border-earth-200/70">
+                      <span className="text-[10px] text-gray-500 font-bold uppercase block">Crop Cycle</span>
+                      <strong className="text-base font-black text-krishi-800 block mt-0.5">
+                        {cropStageInfo.status === 'valid' ? `${cropStageInfo.daysSinceSowing} DAS` : '—'}
+                      </strong>
+                      <span className="text-[10px] text-gray-400">
+                        {cropStageInfo.status === 'valid' ? `${cropStageInfo.progressPercent}% progress` : 'Sowing date needed'}
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-earth-50/70 rounded-xl border border-earth-200/70">
+                      <span className="text-[10px] text-gray-500 font-bold uppercase block">GPS Boundary</span>
+                      <strong className="text-base font-black text-gray-900 block mt-0.5">
+                        {workingBoundary.length >= 3 ? `${workingBoundary.length} pts` : '—'}
+                      </strong>
+                      <span className="text-[10px] text-gray-400">
+                        {workingBoundary.length >= 3 ? 'Active polygon' : 'Unmapped polygon'}
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-earth-50/70 rounded-xl border border-earth-200/70">
+                      <span className="text-[10px] text-gray-500 font-bold uppercase block">Field Issues</span>
+                      <strong className="text-base font-black text-gray-900 block mt-0.5">
+                        {activeFarmCases.length}
+                      </strong>
+                      <span className="text-[10px] text-gray-400">
+                        {activeFarmCases.length === 0 ? 'Optimal field state' : 'Active issues'}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-6 px-4 bg-earth-50/50 rounded-xl border border-dashed border-earth-200">
+                    <BarChart2 className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-xs font-semibold text-gray-700">No farm statistics available yet</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5 max-w-sm mx-auto">
+                      Map field boundaries or register crop sowing details to compute dynamic parcel telemetry.
+                    </p>
+                  </div>
+                )}
+              </Card>
             </div>
 
-            {/* Right Column: Farm Details & Dynamic Health Score */}
+            {/* Right Column: Farm Details, Dynamic Health Score, & Farm Activities */}
             <div className="lg:col-span-5 space-y-4">
               {/* Farm Details Card */}
               <Card className="p-6">
                 <div className="flex items-center justify-between pb-4 border-b border-earth-100 mb-4">
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900">{farm.name || 'My Farm'}</h2>
+                    <h2 className="text-xl font-bold text-gray-900">{farm.name || farm.farm_name || 'Unnamed Farm'}</h2>
                     <p className="text-xs text-gray-500">
-                      Registered to <strong className="text-gray-700 font-semibold">{user.name || 'Farmer'}</strong>
-                      {user.email && <span className="text-gray-400"> ({user.email})</span>}
+                      Registered to <strong className="text-gray-700 font-semibold">{user.name || user.email || 'Profile not set'}</strong>
+                      {user.name && user.email && <span className="text-gray-400"> ({user.email})</span>}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1038,8 +1187,8 @@ export const FarmPage: React.FC = () => {
                   {/* Location */}
                   <div className="p-3 rounded-xl bg-earth-50/70 border border-earth-200/70">
                     <span className="text-[11px] text-gray-500 block uppercase font-bold">Location</span>
-                    <strong className="text-gray-900 text-xs sm:text-sm block truncate" title={farm.location?.address}>
-                      {farm.location?.address || '📍 Farm location not set'}
+                    <strong className="text-gray-900 text-xs sm:text-sm block truncate" title={farm.location?.address || farm.location_address}>
+                      {farm.location?.address || farm.location_address || <span className="text-gray-400 font-normal">📍 Location address not set</span>}
                     </strong>
                   </div>
 
@@ -1047,7 +1196,7 @@ export const FarmPage: React.FC = () => {
                   <div className="p-3 rounded-xl bg-earth-50/70 border border-earth-200/70">
                     <span className="text-[11px] text-gray-500 block uppercase font-bold">Field Area</span>
                     <strong className="text-gray-900 text-xs sm:text-sm">
-                      {displayAcreage > 0 ? `${displayAcreage} ${farm.sizeUnit || 'acres'}` : 'Area not specified'}
+                      {displayAcreage > 0 ? `${displayAcreage} ${farm.sizeUnit || 'acres'}` : <span className="text-gray-400 font-normal">Area not specified</span>}
                     </strong>
                   </div>
 
@@ -1055,15 +1204,15 @@ export const FarmPage: React.FC = () => {
                   <div className="p-3 rounded-xl bg-earth-50/70 border border-earth-200/70">
                     <span className="text-[11px] text-gray-500 block uppercase font-bold">Planted Crop</span>
                     <strong className="text-krishi-800 text-xs sm:text-sm">
-                      {farm.crop?.name ? (
+                      {farm.crop?.name || farm.crop_variety ? (
                         <>
-                          {farm.crop.name}{' '}
-                          {farm.crop.variety ? (
+                          {farm.crop?.name || farm.crop_variety}{' '}
+                          {farm.crop?.variety ? (
                             <span className="text-gray-500 font-normal">({farm.crop.variety})</span>
                           ) : null}
                         </>
                       ) : (
-                        <span className="text-gray-400 font-normal">Crop information not added</span>
+                        <span className="text-gray-400 font-normal">No crop registered</span>
                       )}
                     </strong>
                   </div>
@@ -1075,7 +1224,11 @@ export const FarmPage: React.FC = () => {
                     </span>
                     <div className="mt-0.5">
                       <strong className="text-gray-900 text-xs sm:text-sm block">
-                        {cropStageInfo.stage}
+                        {cropStageInfo.status === 'valid' ? (
+                          cropStageInfo.stage
+                        ) : (
+                          <span className="text-gray-400 font-normal">Stage tracking unavailable (sowing date required)</span>
+                        )}
                       </strong>
                       {cropStageInfo.status === 'valid' && (
                         <div className="mt-1.5 space-y-1">
@@ -1098,7 +1251,11 @@ export const FarmPage: React.FC = () => {
                   <div className="p-3 rounded-xl bg-earth-50/70 border border-earth-200/70">
                     <span className="text-[11px] text-gray-500 block uppercase font-bold">Irrigation System</span>
                     <strong className="text-gray-900 text-xs sm:text-sm">
-                      {farm.irrigationType ? `${farm.irrigationType} System` : 'Irrigation not specified'}
+                      {farm.irrigationType || farm.irrigation_type ? (
+                        `${farm.irrigationType || farm.irrigation_type} System`
+                      ) : (
+                        <span className="text-gray-400 font-normal">Irrigation method not set</span>
+                      )}
                     </strong>
                   </div>
 
@@ -1106,25 +1263,32 @@ export const FarmPage: React.FC = () => {
                   <div className="p-3 rounded-xl bg-earth-50/70 border border-earth-200/70">
                     <span className="text-[11px] text-gray-500 block uppercase font-bold">Soil Type</span>
                     <strong className="text-gray-900 text-xs sm:text-sm">
-                      {farm.soil?.soilType || <span className="text-gray-400 font-normal">Soil information not available</span>}
+                      {farm.soil?.soilType || farm.soil_type || <span className="text-gray-400 font-normal">Soil test not conducted / type not set</span>}
                     </strong>
                   </div>
 
                   {/* Sowing Date */}
-                  <div className="p-3 rounded-xl bg-earth-50/70 border border-earth-200/70 sm:col-span-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-[11px] text-gray-500 block uppercase font-bold">Sowing Date</span>
-                        <strong className="text-gray-900 text-xs sm:text-sm">
-                          {farm.crop?.sowingDate || <span className="text-gray-400 font-normal">Sowing date not set</span>}
-                        </strong>
-                      </div>
-                      {cropStageInfo.status === 'valid' && (
-                        <span className="text-[11px] text-krishi-800 bg-krishi-50 px-2 py-0.5 rounded-md border border-krishi-200 font-medium">
-                          {cropStageInfo.description}
-                        </span>
-                      )}
-                    </div>
+                  <div className="p-3 rounded-xl bg-earth-50/70 border border-earth-200/70">
+                    <span className="text-[11px] text-gray-500 block uppercase font-bold">Sowing Date</span>
+                    <strong className="text-gray-900 text-xs sm:text-sm">
+                      {farm.crop?.sowingDate || farm.sowing_date || <span className="text-gray-400 font-normal">Sowing date not set</span>}
+                    </strong>
+                    {cropStageInfo.status === 'valid' && (
+                      <span className="text-[11px] text-krishi-800 bg-krishi-50 px-2 py-0.5 rounded-md border border-krishi-200 font-medium block mt-1">
+                        {cropStageInfo.description}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Coordinates & Boundary Status */}
+                  <div className="p-3 rounded-xl bg-earth-50/70 border border-earth-200/70">
+                    <span className="text-[11px] text-gray-500 block uppercase font-bold">Coordinates & Boundary</span>
+                    <strong className="text-gray-900 text-xs sm:text-sm block">
+                      {hasCoordinates ? `${farmLat.toFixed(5)}°N, ${farmLon.toFixed(5)}°E` : <span className="text-gray-400 font-normal">Coordinates not configured</span>}
+                    </strong>
+                    <span className="text-[11px] text-gray-500 block mt-0.5">
+                      {workingBoundary.length >= 3 ? `${workingBoundary.length} GPS Polygon Vertices` : <span className="text-gray-400">Boundary not mapped</span>}
+                    </span>
                   </div>
                 </div>
               </Card>
@@ -1228,6 +1392,65 @@ export const FarmPage: React.FC = () => {
                     )}
                   </div>
                 </div>
+              </Card>
+
+              {/* Dynamic Farm Activities Card */}
+              <Card className="p-6">
+                <div className="flex items-center justify-between pb-3 border-b border-earth-100 mb-4">
+                  <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-krishi-600" />
+                    <span>Farm Activities & Timeline</span>
+                  </h3>
+                  <span className="text-[11px] font-semibold text-gray-500 bg-earth-100 px-2 py-0.5 rounded-full">
+                    {allActivities.length} {allActivities.length === 1 ? 'record' : 'records'}
+                  </span>
+                </div>
+
+                {loadingActivities ? (
+                  <div className="text-center py-6 text-xs text-gray-500 font-medium">
+                    Loading farm timeline...
+                  </div>
+                ) : allActivities.length > 0 ? (
+                  <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                    {allActivities.map((act) => (
+                      <div
+                        key={act.id}
+                        className="p-3 bg-earth-50/70 rounded-xl border border-earth-200/70 flex items-start gap-3"
+                      >
+                        <div className="p-1.5 bg-krishi-100 text-krishi-700 rounded-lg shrink-0 mt-0.5">
+                          {act.type === 'problem' ? (
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                          ) : act.type === 'sowing' ? (
+                            <Sprout className="w-3.5 h-3.5 text-emerald-600" />
+                          ) : (
+                            <Clock className="w-3.5 h-3.5 text-krishi-600" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="text-xs font-bold text-gray-900 truncate">{act.title}</h4>
+                            <span className="text-[10px] text-gray-400 shrink-0">
+                              {act.timestamp ? new Date(act.timestamp).toLocaleDateString() : ''}
+                            </span>
+                          </div>
+                          {act.description && (
+                            <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-2">
+                              {act.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 px-4 bg-earth-50/50 rounded-xl border border-dashed border-earth-200">
+                    <Clock className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-xs font-semibold text-gray-700">No activities recorded yet</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5 max-w-xs mx-auto">
+                      Boundary updates, farm edits, and agronomic events will appear here in chronological order.
+                    </p>
+                  </div>
+                )}
               </Card>
             </div>
           </div>
@@ -1379,6 +1602,7 @@ export const FarmPage: React.FC = () => {
                     onChange={(e) => setEditFormData({ ...editFormData, irrigationType: e.target.value as any })}
                     className="w-full px-3 py-2 border border-earth-300 rounded-xl text-sm focus:ring-2 focus:ring-krishi-600 focus:outline-none bg-white relative z-0"
                   >
+                    <option value="">Select Irrigation Method</option>
                     <option value="Drip">Drip Irrigation (ड्रिप)</option>
                     <option value="Sprinkler">Sprinkler (फव्वारा)</option>
                     <option value="Flood">Flood / Furrow (खुला पानी)</option>
@@ -1522,24 +1746,23 @@ export const FarmPage: React.FC = () => {
                 step="0.01"
                 min="0.1"
                 required
-                value={newFarmFormData.size}
-                onChange={(e) => setNewFarmFormData({ ...newFarmFormData, size: parseFloat(e.target.value) || 0 })}
+                value={newFarmFormData.size || ''}
+                onChange={(e) => setNewFarmFormData({ ...newFarmFormData, size: parseFloat(e.target.value) || '' })}
                 className="w-full px-3 py-2 border border-earth-300 rounded-xl text-sm focus:ring-2 focus:ring-krishi-600 focus:outline-none"
-                placeholder="2.0"
+                placeholder="e.g. 2.0"
               />
             </div>
 
             <div>
               <label className="block text-xs font-bold uppercase text-gray-700 mb-1">
-                Crop Name
+                Crop Name (Optional)
               </label>
               <input
                 type="text"
-                required
                 value={newFarmFormData.cropName}
                 onChange={(e) => setNewFarmFormData({ ...newFarmFormData, cropName: e.target.value })}
                 className="w-full px-3 py-2 border border-earth-300 rounded-xl text-sm focus:ring-2 focus:ring-krishi-600 focus:outline-none"
-                placeholder="e.g. Mustard, Chickpea"
+                placeholder="e.g. Mustard, Chickpea, Cotton"
               />
             </div>
           </div>
@@ -1547,28 +1770,65 @@ export const FarmPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold uppercase text-gray-700 mb-1">
-                Crop Variety
+                Crop Variety (Optional)
               </label>
               <input
                 type="text"
                 value={newFarmFormData.cropVariety}
                 onChange={(e) => setNewFarmFormData({ ...newFarmFormData, cropVariety: e.target.value })}
                 className="w-full px-3 py-2 border border-earth-300 rounded-xl text-sm focus:ring-2 focus:ring-krishi-600 focus:outline-none"
-                placeholder="e.g. Pusa Bold"
+                placeholder="e.g. Pusa Bold, JS-335"
               />
             </div>
 
             <div>
               <label className="block text-xs font-bold uppercase text-gray-700 mb-1">
-                Sowing Date
+                Sowing Date (Optional)
               </label>
               <input
                 type="date"
-                required
                 value={newFarmFormData.sowingDate}
                 onChange={(e) => setNewFarmFormData({ ...newFarmFormData, sowingDate: e.target.value })}
                 className="w-full px-3 py-2 border border-earth-300 rounded-xl text-sm focus:ring-2 focus:ring-krishi-600 focus:outline-none font-medium"
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold uppercase text-gray-700 mb-1">
+                Soil Type (Optional)
+              </label>
+              <select
+                value={newFarmFormData.soilType}
+                onChange={(e) => setNewFarmFormData({ ...newFarmFormData, soilType: e.target.value })}
+                className="w-full px-3 py-2 border border-earth-300 rounded-xl text-sm focus:ring-2 focus:ring-krishi-600 focus:outline-none bg-white"
+              >
+                <option value="">Select Soil Type</option>
+                <option value="Loamy Black Cotton">Loamy Black Cotton (काली मिट्टी)</option>
+                <option value="Alluvial Clay Loam">Alluvial Clay Loam (जलोढ़ दोमट)</option>
+                <option value="Red Sandy Loam">Red Sandy Loam (लाल रेतीली मिट्टी)</option>
+                <option value="Clayey">Clayey (चिमनी मिट्टी)</option>
+                <option value="Sandy Loam">Sandy Loam (बलुई दोमट)</option>
+                <option value="Laterite Soil">Laterite Soil (लैटेराइट)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-gray-700 mb-1">
+                Irrigation Method (Optional)
+              </label>
+              <select
+                value={newFarmFormData.irrigationType}
+                onChange={(e) => setNewFarmFormData({ ...newFarmFormData, irrigationType: e.target.value })}
+                className="w-full px-3 py-2 border border-earth-300 rounded-xl text-sm focus:ring-2 focus:ring-krishi-600 focus:outline-none bg-white"
+              >
+                <option value="">Select Irrigation Method</option>
+                <option value="Drip">Drip Irrigation (ड्रिप)</option>
+                <option value="Sprinkler">Sprinkler (फव्वारा)</option>
+                <option value="Flood">Flood / Furrow (खुला पानी)</option>
+                <option value="Rainfed">Rainfed / Dryland (वर्षा आधारित)</option>
+              </select>
             </div>
           </div>
 

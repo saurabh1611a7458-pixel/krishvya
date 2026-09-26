@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { Farm, ProblemCase, ProblemCategory, DiseaseScan, FarmerProfile } from '../types';
+import { Farm, ProblemCase, ProblemCategory, DiseaseScan, FarmerProfile, SoilTestRecord, CropObservationRecord, FarmAlert } from '../types';
 import { AlertItem } from '../data/mockData';
 import { api } from './api';
 
@@ -352,6 +352,24 @@ export const supabaseService = {
         stressDetected: Boolean(satRow?.stress_detected),
         stressAreaDescription: satRow?.stress_area_description,
       },
+
+      // Canonical Supabase fields for direct access
+      farm_id: row.id,
+      user_id: row.clerk_user_id || row.owner_id,
+      clerk_user_id: row.clerk_user_id || row.owner_id,
+      farm_name: farmName,
+      location_address: farmAddress,
+      latitude: typeof row.latitude === 'number' ? row.latitude : 0,
+      longitude: typeof row.longitude === 'number' ? row.longitude : 0,
+      boundary: boundary,
+      field_area: farmSize,
+      crop_variety: cropVariety,
+      crop_stage: cropStage,
+      soil_type: soilType,
+      irrigation_type: row.irrigation_type || 'Drip',
+      sowing_date: sowingDate,
+      created_at: row.created_at || '',
+      updated_at: row.updated_at || '',
     };
   },
 
@@ -1583,8 +1601,350 @@ export const supabaseService = {
     try {
       const { error } = await supabase.from('disease_scans').delete().eq('id', scanId);
       return !error;
+    } catch {
+      return false;
+    }
+  },
+
+  /**
+   * Save a Soil Test Record in Supabase and local cache
+   */
+  async saveSoilTest(test: SoilTestRecord): Promise<boolean> {
+    const cacheKey = `krishvya_soil_tests_${test.userId}_${test.farmId}`;
+    try {
+      const saved = localStorage.getItem(cacheKey);
+      let list: SoilTestRecord[] = saved ? JSON.parse(saved) : [];
+      list = [test, ...list.filter((t) => t.id !== test.id)];
+      localStorage.setItem(cacheKey, JSON.stringify(list));
+    } catch {}
+
+    if (!isSupabaseConfigured) return true;
+
+    try {
+      const row = {
+        id: test.id,
+        user_id: test.userId,
+        farm_id: test.farmId,
+        test_date: test.testDate,
+        source: test.source,
+        sample_depth: test.sampleDepth || null,
+        soil_type: test.soilType || null,
+        ph: typeof test.ph === 'number' ? test.ph : null,
+        nitrogen: test.nitrogen || null,
+        phosphorus: test.phosphorus || null,
+        potassium: test.potassium || null,
+        organic_carbon: test.organicCarbon || null,
+        moisture_percentage: typeof test.moisturePercentage === 'number' ? test.moisturePercentage : null,
+        health_score: typeof test.healthScore === 'number' ? test.healthScore : null,
+        notes: test.notes || null,
+        created_at: test.createdAt || new Date().toISOString(),
+      };
+
+      const { error } = await supabase.from('soil_tests').upsert(row);
+      if (error) {
+        console.warn('[SupabaseService] saveSoilTest error, cached locally:', error);
+      }
+      return true;
     } catch (err) {
-      console.warn('[SupabaseService] deleteDiseaseScan error:', err);
+      console.warn('[SupabaseService] saveSoilTest failed:', err);
+      return false;
+    }
+  },
+
+  /**
+   * Retrieve Soil Test Records strictly isolated by user ID and farm ID
+   */
+  async getSoilTests(userId: string, farmId: string): Promise<SoilTestRecord[]> {
+    const cacheKey = `krishvya_soil_tests_${userId}_${farmId}`;
+    let cachedList: SoilTestRecord[] = [];
+    try {
+      const saved = localStorage.getItem(cacheKey);
+      if (saved) cachedList = JSON.parse(saved);
+    } catch {}
+
+    if (!isSupabaseConfigured || !userId || !farmId) {
+      return cachedList;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('soil_tests')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('farm_id', farmId)
+        .order('test_date', { ascending: false });
+
+      if (error || !data || data.length === 0) {
+        return cachedList;
+      }
+
+      const mapped: SoilTestRecord[] = data.map((row: any) => ({
+        id: row.id,
+        userId: row.user_id,
+        farmId: row.farm_id,
+        testDate: row.test_date,
+        source: row.source,
+        sampleDepth: row.sample_depth,
+        soilType: row.soil_type,
+        ph: row.ph ? Number(row.ph) : undefined,
+        nitrogen: row.nitrogen,
+        phosphorus: row.phosphorus,
+        potassium: row.potassium,
+        organicCarbon: row.organic_carbon,
+        moisturePercentage: row.moisture_percentage ? Number(row.moisture_percentage) : undefined,
+        healthScore: row.health_score ? Number(row.health_score) : undefined,
+        notes: row.notes,
+        createdAt: row.created_at,
+      }));
+
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(mapped));
+      } catch {}
+
+      return mapped;
+    } catch (err) {
+      console.warn('[SupabaseService] getSoilTests error:', err);
+      return cachedList;
+    }
+  },
+
+  /**
+   * Save a Crop Observation Record in Supabase and local cache
+   */
+  async saveCropObservation(obs: CropObservationRecord): Promise<boolean> {
+    const cacheKey = `krishvya_crop_observations_${obs.userId}_${obs.farmId}`;
+    try {
+      const saved = localStorage.getItem(cacheKey);
+      let list: CropObservationRecord[] = saved ? JSON.parse(saved) : [];
+      list = [obs, ...list.filter((o) => o.id !== obs.id)];
+      localStorage.setItem(cacheKey, JSON.stringify(list));
+    } catch {}
+
+    if (!isSupabaseConfigured) return true;
+
+    try {
+      const row = {
+        id: obs.id,
+        user_id: obs.userId,
+        farm_id: obs.farmId,
+        crop: obs.crop,
+        stage: obs.stage,
+        health_score: obs.healthScore,
+        ndvi: typeof obs.ndvi === 'number' ? obs.ndvi : null,
+        observation_type: obs.observationType,
+        notes: obs.notes || null,
+        created_at: obs.createdAt || new Date().toISOString(),
+      };
+
+      const { error } = await supabase.from('crop_observations').upsert(row);
+      if (error) {
+        console.warn('[SupabaseService] saveCropObservation note:', error);
+      }
+      return true;
+    } catch (err) {
+      console.warn('[SupabaseService] saveCropObservation failed:', err);
+      return false;
+    }
+  },
+
+  /**
+   * Fetch Crop Health Observations for a specific user & farm
+   */
+  async getCropObservations(userId: string, farmId: string): Promise<CropObservationRecord[]> {
+    const cacheKey = `krishvya_crop_observations_${userId}_${farmId}`;
+    let cachedList: CropObservationRecord[] = [];
+    try {
+      const saved = localStorage.getItem(cacheKey);
+      if (saved) cachedList = JSON.parse(saved);
+    } catch {}
+
+    if (!isSupabaseConfigured || !userId || !farmId) {
+      return cachedList;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('crop_observations')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('farm_id', farmId)
+        .order('created_at', { ascending: false });
+
+      if (error || !data || data.length === 0) {
+        return cachedList;
+      }
+
+      const mapped: CropObservationRecord[] = data.map((row: any) => ({
+        id: row.id,
+        userId: row.user_id,
+        farmId: row.farm_id,
+        crop: row.crop,
+        stage: row.stage,
+        healthScore: Number(row.health_score),
+        ndvi: row.ndvi !== null ? Number(row.ndvi) : undefined,
+        observationType: row.observation_type,
+        notes: row.notes,
+        createdAt: row.created_at,
+      }));
+
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(mapped));
+      } catch {}
+
+      return mapped;
+    } catch (err) {
+      console.warn('[SupabaseService] getCropObservations error:', err);
+      return cachedList;
+    }
+  },
+
+  /**
+   * Retrieve alerts scoped to authenticated user and selected farm
+   */
+  async getFarmAlerts(userId: string, farmId: string): Promise<FarmAlert[]> {
+    const cacheKey = `krishvya_farm_alerts_${userId}_${farmId}`;
+    let cachedList: FarmAlert[] = [];
+    try {
+      const saved = localStorage.getItem(cacheKey);
+      if (saved) cachedList = JSON.parse(saved);
+    } catch {}
+
+    if (!isSupabaseConfigured || !userId || !farmId) {
+      return cachedList;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('farm_alerts')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('farm_id', farmId)
+        .order('created_at', { ascending: false });
+
+      if (error || !data || data.length === 0) {
+        return cachedList;
+      }
+
+      const mapped: FarmAlert[] = data.map((row: any) => ({
+        id: row.id,
+        userId: row.user_id,
+        farmId: row.farm_id,
+        category: row.category,
+        title: row.title,
+        description: row.description,
+        severity: row.severity,
+        actionableText: row.actionable_text,
+        targetRoute: row.target_route,
+        isRead: Boolean(row.is_read),
+        createdAt: row.created_at,
+      }));
+
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(mapped));
+      } catch {}
+
+      return mapped;
+    } catch (err) {
+      console.warn('[SupabaseService] getFarmAlerts error:', err);
+      return cachedList;
+    }
+  },
+
+  /**
+   * Save an alert for a specific farm in Supabase and local cache
+   */
+  async saveFarmAlert(alert: FarmAlert): Promise<boolean> {
+    const cacheKey = `krishvya_farm_alerts_${alert.userId}_${alert.farmId}`;
+    try {
+      const saved = localStorage.getItem(cacheKey);
+      let list: FarmAlert[] = saved ? JSON.parse(saved) : [];
+      list = [alert, ...list.filter((a) => a.id !== alert.id)];
+      localStorage.setItem(cacheKey, JSON.stringify(list));
+    } catch {}
+
+    if (!isSupabaseConfigured) return true;
+
+    try {
+      const row = {
+        id: alert.id,
+        user_id: alert.userId,
+        farm_id: alert.farmId,
+        category: alert.category,
+        title: alert.title,
+        description: alert.description,
+        severity: alert.severity,
+        actionable_text: alert.actionableText || null,
+        target_route: alert.targetRoute || null,
+        is_read: alert.isRead,
+        created_at: alert.createdAt || new Date().toISOString(),
+      };
+
+      const { error } = await supabase.from('farm_alerts').upsert(row);
+      if (error) {
+        console.warn('[SupabaseService] saveFarmAlert note:', error);
+      }
+      return true;
+    } catch (err) {
+      console.warn('[SupabaseService] saveFarmAlert failed:', err);
+      return false;
+    }
+  },
+
+  /**
+   * Mark an alert as read in Supabase and local cache
+   */
+  async markAlertRead(alertId: string, userId: string, farmId: string): Promise<boolean> {
+    const cacheKey = `krishvya_farm_alerts_${userId}_${farmId}`;
+    try {
+      const saved = localStorage.getItem(cacheKey);
+      if (saved) {
+        const list: FarmAlert[] = JSON.parse(saved);
+        const updated = list.map((a) => (a.id === alertId ? { ...a, isRead: true } : a));
+        localStorage.setItem(cacheKey, JSON.stringify(updated));
+      }
+    } catch {}
+
+    if (!isSupabaseConfigured) return true;
+
+    try {
+      const { error } = await supabase
+        .from('farm_alerts')
+        .update({ is_read: true })
+        .eq('id', alertId)
+        .eq('user_id', userId)
+        .eq('farm_id', farmId);
+      return !error;
+    } catch (err) {
+      console.warn('[SupabaseService] markAlertRead failed:', err);
+      return false;
+    }
+  },
+
+  /**
+   * Dismiss/delete an alert
+   */
+  async dismissFarmAlert(alertId: string, userId: string, farmId: string): Promise<boolean> {
+    const cacheKey = `krishvya_farm_alerts_${userId}_${farmId}`;
+    try {
+      const saved = localStorage.getItem(cacheKey);
+      if (saved) {
+        const list: FarmAlert[] = JSON.parse(saved);
+        localStorage.setItem(cacheKey, JSON.stringify(list.filter((a) => a.id !== alertId)));
+      }
+    } catch {}
+
+    if (!isSupabaseConfigured) return true;
+
+    try {
+      const { error } = await supabase
+        .from('farm_alerts')
+        .delete()
+        .eq('id', alertId)
+        .eq('user_id', userId)
+        .eq('farm_id', farmId);
+      return !error;
+    } catch (err) {
+      console.warn('[SupabaseService] dismissFarmAlert failed:', err);
       return false;
     }
   },

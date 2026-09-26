@@ -12,11 +12,11 @@ import { QuickActions } from '../components/dashboard/QuickActions';
 import { LanguageSelector } from '../components/common/LanguageSelector';
 import { useFarm } from '../context/FarmContext';
 import { useLanguage } from '../context/LanguageContext';
-import { Bell, MapPin, AlertCircle } from 'lucide-react';
+import { Bell, MapPin, AlertCircle, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const DashboardPage: React.FC = () => {
-  const { user, farm, farms, problemCases } = useFarm();
+  const { user, farm, farms, problemCases, selectFarm, selectedFarmId } = useFarm();
   const { t } = useLanguage();
 
   return (
@@ -28,14 +28,33 @@ export const DashboardPage: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 pb-20 lg:pb-10">
         {/* Top App Bar */}
         <header className="bg-white border-b border-earth-200/80 px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-xs">
-          {/* Farm Location Pill */}
+          {/* Farm Location Pill / Selector */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-earth-100/90 text-earth-900 text-xs sm:text-sm font-semibold border border-earth-200">
-              <MapPin className="w-3.5 h-3.5 text-krishi-700" />
-              <span>{farm.location?.address || 'Maharashtra, India'}</span>
-              <span className="text-gray-400">•</span>
-              <span>{farm.size} {farm.sizeUnit}</span>
-            </div>
+            {farms.length > 1 ? (
+              <div className="relative flex items-center">
+                <select
+                  value={selectedFarmId || farm.id}
+                  onChange={(e) => selectFarm(e.target.value)}
+                  className="appearance-none bg-earth-100/90 text-earth-900 text-xs sm:text-sm font-semibold border border-earth-200 rounded-full pl-8 pr-8 py-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-krishi-600 shadow-2xs hover:bg-earth-200/80 transition-all"
+                  aria-label="Select active farm"
+                >
+                  {farms.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name} • {f.size} {f.sizeUnit || 'ac'} ({f.location?.district || f.location?.address || 'Farm'})
+                    </option>
+                  ))}
+                </select>
+                <MapPin className="w-3.5 h-3.5 text-krishi-700 absolute left-3 pointer-events-none" />
+                <ChevronDown className="w-3.5 h-3.5 text-gray-500 absolute right-3 pointer-events-none" />
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-earth-100/90 text-earth-900 text-xs sm:text-sm font-semibold border border-earth-200">
+                <MapPin className="w-3.5 h-3.5 text-krishi-700" />
+                <span>{farm.name ? `${farm.name} • ` : ''}{farm.location?.address || 'No farm location set'}</span>
+                <span className="text-gray-400">•</span>
+                <span>{farm.size} {farm.sizeUnit}</span>
+              </div>
+            )}
           </div>
 
           {/* Right Header Utility Controls */}
@@ -61,7 +80,7 @@ export const DashboardPage: React.FC = () => {
               className="flex items-center gap-2 pl-2 border-l border-earth-200"
             >
               <div className="w-8 h-8 rounded-full bg-krishi-700 text-white font-bold text-xs flex items-center justify-center shadow-xs">
-                {user.name ? user.name.charAt(0) : 'R'}
+                {user.name ? user.name.charAt(0).toUpperCase() : 'F'}
               </div>
             </Link>
           </div>
