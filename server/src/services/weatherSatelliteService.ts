@@ -45,10 +45,13 @@ export interface LiveWeatherResponse {
   windSpeedKmh: number;
   rainProbability24h: number;
   soilMoisturePercentage: number;
+  visibilityKm?: number;
+  sunrise?: string;
+  sunset?: string;
   advice: string;
   lastUpdated: string;
   coordinates: { latitude: number; longitude: number };
-  hourlyRainForecast: Array<{ hour: string; rainProbability: number; temperature: number }>;
+  hourlyRainForecast: Array<{ hour: string; rainProbability: number; temperature: number; condition?: string; icon?: string }>;
   hourlySprayForecast: HourlyWeatherPoint[];
   hazards: WeatherHazard[];
   pumpRecommendation: PumpRecommendation;
@@ -134,7 +137,7 @@ export async function fetchLiveWeather(
   }
 
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,wind_speed_10m,relative_humidity_2m,soil_moisture_0_to_7cm&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&timezone=auto`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,wind_speed_10m,visibility&hourly=temperature_2m,precipitation_probability,weather_code,wind_speed_10m,relative_humidity_2m,soil_moisture_0_to_7cm&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,sunrise,sunset&timezone=auto`;
 
     const res = await fetch(url);
     if (!res.ok) {
@@ -156,6 +159,20 @@ export async function fetchLiveWeather(
 
     const advice = generateAgriculturalAdvice(wmo.condition, rainProb24h, current.temperature_2m, current.wind_speed_10m);
 
+    // Parse visibility in km
+    const visibilityKm = typeof current.visibility === 'number'
+      ? Math.round((current.visibility / 1000) * 10) / 10
+      : undefined;
+
+    // Format sunrise & sunset
+    const formatSunTime = (isoString?: string) => {
+      if (!isoString) return undefined;
+      const d = new Date(isoString);
+      return isNaN(d.getTime()) ? undefined : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+    const sunrise = formatSunTime(daily.sunrise?.[0]);
+    const sunset = formatSunTime(daily.sunset?.[0]);
+
     // Build 7-day forecast
     const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const forecast7Days = (daily.time || []).slice(0, 7).map((dateStr: string, idx: number) => {
@@ -176,10 +193,13 @@ export async function fetchLiveWeather(
     const hourlyRainForecast = (hourly.time || []).slice(0, 24).map((timeStr: string, idx: number) => {
       const d = new Date(timeStr);
       const hour = `${d.getHours().toString().padStart(2, '0')}:00`;
+      const hourWmo = mapWmoCode(hourly.weather_code?.[idx] || current.weather_code || 2);
       return {
         hour,
-        rainProbability: Math.round(hourly.precipitation_probability?.[idx] || 15),
+        rainProbability: Math.round(hourly.precipitation_probability?.[idx] || 0),
         temperature: Math.round(hourly.temperature_2m?.[idx] || current.temperature_2m),
+        condition: hourWmo.condition,
+        icon: hourWmo.icon,
       };
     });
 
@@ -305,6 +325,9 @@ export async function fetchLiveWeather(
       windSpeedKmh: Math.round(current.wind_speed_10m),
       rainProbability24h: rainProb24h,
       soilMoisturePercentage,
+      visibilityKm,
+      sunrise,
+      sunset,
       advice,
       lastUpdated: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
       coordinates: { latitude, longitude },

@@ -47,6 +47,8 @@ export const FarmPage: React.FC = () => {
     deleteFarm,
     activeUserKey,
     switchTestUser,
+    isLoading,
+    isSyncingAuth,
   } = useFarm();
   const { t } = useLanguage();
 
@@ -445,7 +447,7 @@ export const FarmPage: React.FC = () => {
       const farmSize = Number(newFarmFormData.size) || 2.0;
       const boundary = lat !== 0 && lon !== 0 ? generateDefaultBoundary(lat, lon, farmSize) : undefined;
 
-      await createFarm({
+      const created = await createFarm({
         name: newFarmFormData.name.trim() || 'New Farm Parcel',
         size: farmSize,
         irrigationType: newFarmFormData.irrigationType,
@@ -460,10 +462,10 @@ export const FarmPage: React.FC = () => {
         },
         crop: {
           id: `crop_${Date.now()}`,
-          name: newFarmFormData.cropName.trim(),
-          variety: newFarmFormData.cropVariety.trim(),
+          name: newFarmFormData.cropName.trim() || 'Soybean',
+          variety: newFarmFormData.cropVariety.trim() || 'Standard Variety',
           stage: 'Seedling',
-          sowingDate: newFarmFormData.sowingDate,
+          sowingDate: newFarmFormData.sowingDate || new Date().toISOString().split('T')[0],
         },
         soil: {
           healthScore: 78,
@@ -476,7 +478,12 @@ export const FarmPage: React.FC = () => {
           soilType: newFarmFormData.soilType.trim() || 'Loamy',
         },
       });
+      if (created && created.id) {
+        selectFarm(created.id);
+      }
       setIsAddFarmModalOpen(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 4000);
     } catch (err) {
       console.warn('Failed to create new farm:', err);
     } finally {
@@ -612,6 +619,7 @@ export const FarmPage: React.FC = () => {
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-krishi-50 text-krishi-900 border border-krishi-200">
                 <User className="w-3.5 h-3.5 text-krishi-600" />
                 <span>Welcome, {user.name || 'Farmer'}</span>
+                {user.email && <span className="text-krishi-700 font-medium">({user.email})</span>}
               </span>
 
               {saveSuccess && (
@@ -674,114 +682,157 @@ export const FarmPage: React.FC = () => {
               </div>
             )}
 
-            {/* GPS Location Button */}
-            <button
-              onClick={handleAcquireGps}
-              disabled={isLocating}
-              type="button"
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                userGpsLocation
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
-                  : 'bg-earth-100 hover:bg-earth-200 text-gray-700'
-              }`}
-              title="Acquire live GPS coordinates"
-            >
-              <Navigation className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : ''}`} />
-              <span>{isLocating ? 'Locating...' : userGpsLocation ? '📍 GPS Linked' : '📍 GPS Fix'}</span>
-            </button>
+            {farms.length > 0 ? (
+              <>
+                {/* GPS Location Button */}
+                <button
+                  onClick={handleAcquireGps}
+                  disabled={isLocating}
+                  type="button"
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
+                    userGpsLocation
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
+                      : 'bg-earth-100 hover:bg-earth-200 text-gray-700'
+                  }`}
+                  title="Acquire live GPS coordinates"
+                >
+                  <Navigation className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : ''}`} />
+                  <span>{isLocating ? 'Locating...' : userGpsLocation ? '📍 GPS Linked' : '📍 GPS Fix'}</span>
+                </button>
 
-            {/* Edit / Save Boundary Toggle */}
-            {!isEditing ? (
+                {/* Edit / Save Boundary Toggle */}
+                {!isEditing ? (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={<Edit className="w-3.5 h-3.5" />}
+                    onClick={() => {
+                      if (workingBoundary.length < 3) {
+                        handleStartAddBoundary();
+                      } else {
+                        setIsEditing(true);
+                      }
+                    }}
+                    className="bg-krishi-700 hover:bg-krishi-800 text-white shadow-xs"
+                  >
+                    {workingBoundary.length >= 3 ? 'Edit Field Boundary' : 'Add Field Boundary'}
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={<X className="w-3.5 h-3.5" />}
+                      onClick={() => {
+                        handleResetBoundary();
+                        setIsEditing(false);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={<Check className="w-3.5 h-3.5" />}
+                      onClick={handleSaveBoundary}
+                      disabled={isSaving}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs font-bold"
+                    >
+                      {isSaving ? 'Saving...' : 'Save Boundary'}
+                    </Button>
+                  </div>
+                )}
+              </>
+            ) : (
               <Button
                 variant="primary"
                 size="sm"
-                icon={<Edit className="w-3.5 h-3.5" />}
-                onClick={() => {
-                  if (workingBoundary.length < 3) {
-                    handleStartAddBoundary();
-                  } else {
-                    setIsEditing(true);
-                  }
-                }}
-                className="bg-krishi-700 hover:bg-krishi-800 text-white shadow-xs"
+                icon={<Plus className="w-3.5 h-3.5" />}
+                onClick={() => setIsAddFarmModalOpen(true)}
+                className="bg-krishi-700 hover:bg-krishi-800 text-white shadow-xs font-bold text-xs"
               >
-                {workingBoundary.length >= 3 ? 'Edit Field Boundary' : 'Add Field Boundary'}
+                + Add Your Farm
               </Button>
-            ) : (
-              <div className="flex items-center gap-1.5">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  icon={<X className="w-3.5 h-3.5" />}
-                  onClick={() => {
-                    handleResetBoundary();
-                    setIsEditing(false);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  icon={<Check className="w-3.5 h-3.5" />}
-                  onClick={handleSaveBoundary}
-                  disabled={isSaving}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs font-bold"
-                >
-                  {isSaving ? 'Saving...' : 'Save Boundary'}
-                </Button>
-              </div>
             )}
           </div>
         </header>
 
         <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
-          {/* Multi-Farm Selector Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-earth-200 shadow-2xs">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-500 pl-1">
-                Your Farms ({farms.length}):
-              </span>
-              {farms.map((f) => {
-                const isSelected = f.id === selectedFarmId;
-                const fArea =
-                  f.boundaryVertices && f.boundaryVertices.length >= 3
-                    ? calculatePolygonAreaAcres(f.boundaryVertices)
-                    : f.size;
-                return (
-                  <button
-                    key={f.id}
-                    onClick={() => selectFarm(f.id)}
-                    type="button"
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                      isSelected
-                        ? 'bg-krishi-700 text-white shadow-xs ring-2 ring-krishi-600/30'
-                        : 'bg-earth-100 hover:bg-earth-200 text-gray-700'
-                    }`}
-                  >
-                    <Sprout className="w-3.5 h-3.5" />
-                    <span>{f.name}</span>
-                    <span className={isSelected ? 'text-krishi-200' : 'text-gray-400'}>
-                      ({fArea} {f.sizeUnit || 'ac'})
-                    </span>
-                  </button>
-                );
-              })}
+          {(isLoading || isSyncingAuth) ? (
+            /* Loading State */
+            <div className="flex flex-col items-center justify-center p-12 bg-white rounded-3xl border border-earth-200 text-center min-h-[400px] shadow-soft">
+              <div className="w-12 h-12 border-4 border-krishi-700 border-t-transparent rounded-full animate-spin mb-4" />
+              <h3 className="text-lg font-bold text-gray-900">Loading your farm...</h3>
+              <p className="text-xs text-gray-500 mt-1">Retrieving farm parcels & live satellite telemetry</p>
             </div>
+          ) : farms.length === 0 ? (
+            /* Empty State: Prompt specifically requires: 'No farm added yet' with '+ Add Your Farm' button */
+            <div className="p-8 sm:p-14 bg-white rounded-3xl border border-earth-200 shadow-soft flex flex-col items-center justify-center text-center max-w-xl mx-auto my-12">
+              <div className="w-20 h-20 rounded-3xl bg-krishi-50 border border-krishi-200 flex items-center justify-center mb-5 text-krishi-700 shadow-inner">
+                <Sprout className="w-10 h-10" />
+              </div>
+              <h2 className="text-2xl font-black text-gray-900 tracking-tight mb-2">No farm added yet</h2>
+              <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+                You haven't registered any farm parcel yet. Register your farm to monitor satellite boundaries, NDVI vegetation health, dynamic crop stages, and local weather forecasts.
+              </p>
+              <Button
+                variant="primary"
+                size="lg"
+                icon={<Plus className="w-5 h-5" />}
+                onClick={() => setIsAddFarmModalOpen(true)}
+                className="bg-krishi-700 hover:bg-krishi-800 text-white font-bold shadow-md px-6 py-3"
+              >
+                + Add Your Farm
+              </Button>
+            </div>
+          ) : (
+            <>
+              {/* Multi-Farm Selector Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-earth-200 shadow-2xs">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold uppercase tracking-wider text-gray-500 pl-1">
+                    Your Farms ({farms.length}):
+                  </span>
+                  {farms.map((f) => {
+                    const isSelected = f.id === selectedFarmId;
+                    const fArea =
+                      f.boundaryVertices && f.boundaryVertices.length >= 3
+                        ? calculatePolygonAreaAcres(f.boundaryVertices)
+                        : f.size;
+                    return (
+                      <button
+                        key={f.id}
+                        onClick={() => selectFarm(f.id)}
+                        type="button"
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                          isSelected
+                            ? 'bg-krishi-700 text-white shadow-xs ring-2 ring-krishi-600/30'
+                            : 'bg-earth-100 hover:bg-earth-200 text-gray-700'
+                        }`}
+                      >
+                        <Sprout className="w-3.5 h-3.5" />
+                        <span>{f.name}</span>
+                        <span className={isSelected ? 'text-krishi-200' : 'text-gray-400'}>
+                          ({fArea} {f.sizeUnit || 'ac'})
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              icon={<Plus className="w-3.5 h-3.5" />}
-              onClick={() => setIsAddFarmModalOpen(true)}
-              className="text-xs"
-            >
-              Add New Farm Parcel
-            </Button>
-          </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<Plus className="w-3.5 h-3.5" />}
+                  onClick={() => setIsAddFarmModalOpen(true)}
+                  className="text-xs"
+                >
+                  Add New Farm Parcel
+                </Button>
+              </div>
 
-          {/* Main Grid: Fully responsive (Desktop: 7/5 columns, Tablet: 2-col, Mobile: vertical stack) */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Main Grid: Fully responsive (Desktop: 7/5 columns, Tablet: 2-col, Mobile: vertical stack) */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* Left Column: Satellite Field Boundary Map */}
             <div className="lg:col-span-7 space-y-4">
               <Card className="p-4 sm:p-5 relative">
@@ -953,6 +1004,7 @@ export const FarmPage: React.FC = () => {
                     <h2 className="text-xl font-bold text-gray-900">{farm.name || 'My Farm'}</h2>
                     <p className="text-xs text-gray-500">
                       Registered to <strong className="text-gray-700 font-semibold">{user.name || 'Farmer'}</strong>
+                      {user.email && <span className="text-gray-400"> ({user.email})</span>}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -965,11 +1017,11 @@ export const FarmPage: React.FC = () => {
                     >
                       Edit Details
                     </Button>
-                    {farms.length > 1 && (
+                    {farms.length >= 1 && (
                       <button
                         type="button"
                         onClick={() => {
-                          if (confirm(`Are you sure you want to delete ${farm.name}?`)) {
+                          if (confirm(`Are you sure you want to delete ${farm.name || 'this farm parcel'}?`)) {
                             deleteFarm(farm.id);
                           }
                         }}
@@ -1011,7 +1063,7 @@ export const FarmPage: React.FC = () => {
                           ) : null}
                         </>
                       ) : (
-                        <span className="text-gray-400 font-normal">Crop not selected</span>
+                        <span className="text-gray-400 font-normal">Crop information not added</span>
                       )}
                     </strong>
                   </div>
@@ -1179,6 +1231,8 @@ export const FarmPage: React.FC = () => {
               </Card>
             </div>
           </div>
+            </>
+          )}
         </main>
       </div>
 

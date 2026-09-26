@@ -147,6 +147,17 @@ class VoiceService {
       },
     };
   }
+
+  /**
+   * Stop speech recognition if active
+   */
+  stopListening(): void {
+    try {
+      this.recognition?.stop();
+    } catch {
+      // ignore
+    }
+  }
 }
 
 export const voiceService = new VoiceService();

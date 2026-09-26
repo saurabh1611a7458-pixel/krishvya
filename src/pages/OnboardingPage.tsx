@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '@clerk/clerk-react';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
 import { Input } from '../components/common/Input';
@@ -40,10 +41,12 @@ const STAGE_OPTIONS: { stage: CropStage; desc: string; icon: string }[] = [
 
 export const OnboardingPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user: clerkUser } = useUser();
   const { t } = useLanguage();
-  const { farm, updateFarm } = useFarm();
+  const { farm, farms, updateFarm, createFarm, setIsNewUser, user, activeUserKey } = useFarm();
 
   const [step, setStep] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
 
   // Form State for each step
   const [locationName, setLocationName] = useState('Maharashtra, India');
@@ -56,32 +59,83 @@ export const OnboardingPage: React.FC = () => {
   const [soilType, setSoilType] = useState('Loamy Black Cotton');
   const [phValue, setPhValue] = useState('6.8');
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step < 6) {
       setStep(step + 1);
     } else {
-      // Finalize and save to FarmContext
-      updateFarm({
-        location: {
-          ...farm.location,
-          address: locationName,
-          state: locationName.includes(',') ? locationName : `${locationName}, India`,
-        },
-        size: Number(farmSize) || 2.5,
-        sizeUnit,
-        crop: {
-          ...farm.crop,
-          name: selectedCrop,
-          stage: selectedStage,
-        },
-        soil: {
-          ...farm.soil,
-          soilType: soilType || 'Loamy Black Cotton',
-          ph: parseFloat(phValue) || 6.8,
-        },
-      });
+      setSubmitting(true);
+      try {
+        const ownerId = activeUserKey === 'clerk' && clerkUser?.id ? clerkUser.id : user.id;
+        const hasExistingOwnedFarm = farms.some((f) => f.ownerId === ownerId);
 
-      navigate('/dashboard');
+        if (!hasExistingOwnedFarm || farms.length === 0) {
+          // New User setup: Create farm in Supabase
+          await createFarm({
+            name: `${selectedCrop} Parcel`,
+            location: {
+              address: locationName,
+              district: user.district || 'Nagpur',
+              state: locationName.includes(',') ? locationName : `${locationName}, India`,
+              latitude: farm.location?.latitude || 21.3855,
+              longitude: farm.location?.longitude || 78.9189,
+            },
+            size: Number(farmSize) || 2.5,
+            sizeUnit,
+            crop: {
+              id: `crop_${Date.now()}`,
+              name: selectedCrop,
+              variety: 'Standard Variety',
+              stage: selectedStage,
+              sowingDate: new Date().toISOString().split('T')[0],
+            },
+            soil: {
+              healthScore: 78,
+              nitrogen: 'Good',
+              phosphorus: 'Medium',
+              potassium: 'Good',
+              ph: parseFloat(phValue) || 6.8,
+              organicCarbon: 'Medium (0.6%)',
+              moisturePercentage: 42,
+              soilType: soilType || 'Loamy Black Cotton',
+            },
+          });
+        } else {
+          // Existing farm update
+          await updateFarm({
+            location: {
+              ...farm.location,
+              address: locationName,
+              state: locationName.includes(',') ? locationName : `${locationName}, India`,
+            },
+            size: Number(farmSize) || 2.5,
+            sizeUnit,
+            crop: {
+              ...farm.crop,
+              name: selectedCrop,
+              stage: selectedStage,
+            },
+            soil: {
+              ...farm.soil,
+              soilType: soilType || 'Loamy Black Cotton',
+              ph: parseFloat(phValue) || 6.8,
+            },
+          });
+        }
+        setIsNewUser(false);
+        try {
+          localStorage.setItem('krishvya_is_new_user', 'false');
+        } catch {}
+        navigate('/dashboard');
+      } catch (err) {
+        console.warn('Error saving onboarding farm:', err);
+        setIsNewUser(false);
+        try {
+          localStorage.setItem('krishvya_is_new_user', 'false');
+        } catch {}
+        navigate('/dashboard');
+      } finally {
+        setSubmitting(false);
+      }
     }
   };
 
@@ -502,12 +556,13 @@ export const OnboardingPage: React.FC = () => {
               </Button>
               <Button
                 onClick={handleNext}
+                disabled={submitting}
                 variant="primary"
                 size="lg"
                 icon={<Check className="w-5 h-5" />}
                 className="bg-krishi-700 hover:bg-krishi-800 font-bold shadow-md"
               >
-                {t('createMyFarm')}
+                {submitting ? 'Creating Your Farm...' : t('createMyFarm')}
               </Button>
             </div>
           </Card>

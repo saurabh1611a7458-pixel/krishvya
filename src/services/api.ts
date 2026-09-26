@@ -15,6 +15,15 @@ export interface ApiResponse<T> {
 
 class ApiService {
   private tokenKey = 'krishvya_jwt_token';
+  private currentClerkUserId: string | null = null;
+
+  setClerkUserId(id: string | null) {
+    this.currentClerkUserId = id;
+  }
+
+  getClerkUserId(): string | null {
+    return this.currentClerkUserId;
+  }
 
   getToken(): string | null {
     try {
@@ -52,6 +61,10 @@ class ApiService {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
+      if (this.currentClerkUserId) {
+        headers['x-clerk-user-id'] = this.currentClerkUserId;
+      }
+
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
         headers,
@@ -64,6 +77,7 @@ class ApiService {
           success: false,
           message: json.message || `HTTP error ${response.status}`,
           error: json.message || response.statusText,
+          ...json,
         };
       }
 
@@ -134,14 +148,32 @@ class ApiService {
   }
 
   // Farm
-  async getFarm() {
-    return this.request<any>('/farm');
+  async getFarm(farmId?: string) {
+    const query = farmId ? `?id=${encodeURIComponent(farmId)}` : '';
+    return this.request<any>(`/farm${query}`);
+  }
+
+  async getAllFarms() {
+    return this.request<any[]>('/farm/all');
+  }
+
+  async createFarm(farmData: unknown) {
+    return this.request<any>('/farm', {
+      method: 'POST',
+      body: JSON.stringify(farmData),
+    });
   }
 
   async updateFarm(updates: unknown) {
     return this.request<any>('/farm', {
       method: 'PUT',
       body: JSON.stringify(updates),
+    });
+  }
+
+  async deleteFarm(farmId: string) {
+    return this.request<any>(`/farm/${farmId}`, {
+      method: 'DELETE',
     });
   }
 

@@ -1,10 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { Farm, FarmerProfile, ProblemCase, ProblemCategory } from '../types';
-import { MOCK_FARMER, FARM_A_PUNE, FARM_B_NAGPUR } from '../data/mockData';
 import { api } from '../services/api';
-
-
 import { supabaseService } from '../services/supabaseService';
 
 const getPastDate = (daysAgo: number): string => {
@@ -178,6 +175,73 @@ export const DEMO_USERS: Record<'rajesh' | 'gurpreet', { user: FarmerProfile; fa
   },
 };
 
+export const EMPTY_FARMER: FarmerProfile = {
+  id: '',
+  name: '',
+  phone: '',
+  email: '',
+  role: 'farmer',
+  preferredLanguage: 'english',
+  district: '',
+  state: '',
+  village: '',
+  totalLandAcres: 0,
+  experienceYears: 0,
+  voiceAssistantEnabled: true,
+  smsNotifications: true,
+  createdAt: '',
+};
+
+export const EMPTY_FARM: Farm = {
+  id: '',
+  name: '',
+  ownerId: '',
+  location: {
+    address: '',
+    district: '',
+    state: '',
+    latitude: 0,
+    longitude: 0,
+  },
+  size: 0,
+  sizeUnit: 'acres',
+  farmHealthScore: 0,
+  irrigationType: 'Rainfed',
+  crop: {
+    id: '',
+    name: '',
+    variety: '',
+    stage: '' as any,
+    sowingDate: '',
+  },
+  soil: {
+    healthScore: 0,
+    nitrogen: 'Medium',
+    phosphorus: 'Medium',
+    potassium: 'Medium',
+    ph: 7.0,
+    organicCarbon: 'Medium',
+    moisturePercentage: 0,
+    soilType: '',
+  },
+  weather: {
+    temperature: 0,
+    condition: '',
+    conditionIcon: '',
+    rainProbability: 0,
+    humidity: 0,
+    windSpeedKmh: 0,
+    advice: '',
+    forecast7Days: [],
+  },
+  satellite: {
+    healthScore: 0,
+    ndvi: 0,
+    lastUpdated: '',
+    stressDetected: false,
+  },
+};
+
 interface FarmContextType {
   user: FarmerProfile;
   farm: Farm;
@@ -189,6 +253,10 @@ interface FarmContextType {
   switchTestUser: (userKey: 'clerk' | 'rajesh' | 'gurpreet') => void;
   activeUserKey: 'clerk' | 'rajesh' | 'gurpreet';
   isAuthenticated: boolean;
+  isLoading: boolean;
+  isNewUser: boolean;
+  setIsNewUser: (isNew: boolean) => void;
+  isSyncingAuth: boolean;
   problemCases: ProblemCase[];
   login: (emailOrPhone: string, password?: string) => Promise<{ success: boolean; message?: string }>;
   signup: (
@@ -214,113 +282,143 @@ export const FarmProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return (saved as any) || 'clerk';
   });
 
+  const { user: clerkUser, isLoaded: clerkLoaded, isSignedIn: clerkSignedIn } = useUser();
+  const { signOut: clerkSignOut } = useClerk();
+
+  const [isLoading, setIsLoading] = useState<boolean>(!clerkLoaded);
+  const [isSyncingAuth, setIsSyncingAuth] = useState<boolean>(false);
+
   const [user, setUser] = useState<FarmerProfile>(() => {
     const savedKey = localStorage.getItem('krishvya_active_user_key');
     if (savedKey === 'rajesh') return DEMO_USERS.rajesh.user;
     if (savedKey === 'gurpreet') return DEMO_USERS.gurpreet.user;
-    const saved = localStorage.getItem('krishvya_user');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed.name !== 'Ramesh Singh' && parsed.village !== 'Saoner') {
-          return parsed;
-        }
-      } catch {}
-    }
-    return MOCK_FARMER;
+    return EMPTY_FARMER;
   });
 
   const [farms, setFarms] = useState<Farm[]>(() => {
     const savedKey = localStorage.getItem('krishvya_active_user_key');
     if (savedKey === 'rajesh') return [DEMO_USERS.rajesh.farm];
     if (savedKey === 'gurpreet') return [DEMO_USERS.gurpreet.farm];
-    const saved = localStorage.getItem('krishvya_farms');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (
-          Array.isArray(parsed) &&
-          parsed.length > 0 &&
-          !parsed.some((f: any) =>
-            f.name === 'Ramesh Shwet Farm' ||
-            f.id === 'farm_01' ||
-            f.location?.address?.includes('Saoner') ||
-            f.location?.latitude === 21.3855
-          )
-        ) {
-          return parsed;
-        }
-      } catch {}
-    }
-    return [FARM_A_PUNE, FARM_B_NAGPUR];
+    return [];
+  });
+
+  const [isNewUser, setIsNewUser] = useState<boolean>(() => {
+    return localStorage.getItem('krishvya_is_new_user') === 'true';
   });
 
   const [selectedFarmId, setSelectedFarmId] = useState<string>(() => {
     const savedKey = localStorage.getItem('krishvya_active_user_key');
     if (savedKey === 'rajesh') return DEMO_USERS.rajesh.farm.id;
     if (savedKey === 'gurpreet') return DEMO_USERS.gurpreet.farm.id;
-    const saved = localStorage.getItem('krishvya_selected_farm_id');
-    if (saved && saved !== 'farm_01') return saved;
-    return FARM_A_PUNE.id;
+    return '';
   });
-
-  const farm = farms.find((f) => f.id === selectedFarmId) || farms[0] || FARM_A_PUNE;
-
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('krishvya_auth') === 'true' || Boolean(api.getToken());
+    return Boolean(clerkSignedIn || localStorage.getItem('krishvya_auth') === 'true');
   });
 
-  const [problemCases, setProblemCases] = useState<ProblemCase[]>(() => {
-    const saved = localStorage.getItem('krishvya_cases');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [problemCases, setProblemCases] = useState<ProblemCase[]>([]);
 
-  const { user: clerkUser, isLoaded: clerkLoaded, isSignedIn: clerkSignedIn } = useUser();
-  const { signOut: clerkSignOut } = useClerk();
+  // Selected farm: strictly from user's actual farms, otherwise clean EMPTY_FARM (no fake demo values)
+  const farm = farms.find((f) => f.id === selectedFarmId) || farms[0] || EMPTY_FARM;
 
-  // Sync Clerk authenticated user with FarmContext when activeUserKey is 'clerk'
+  const prevClerkIdRef = useRef<string | null>(null);
+
+  // Sync Clerk authenticated user with Supabase database when activeUserKey is 'clerk'
   useEffect(() => {
     if (activeUserKey !== 'clerk') return;
+    if (!clerkLoaded) return;
 
-    if (clerkLoaded && clerkSignedIn && clerkUser) {
-      setUser((prev) => ({
-        ...prev,
-        id: clerkUser.id,
-        name: clerkUser.fullName || clerkUser.firstName || prev.name,
-        email: clerkUser.primaryEmailAddress?.emailAddress || prev.email,
-        phone: clerkUser.primaryPhoneNumber?.phoneNumber || prev.phone,
-      }));
-      setIsAuthenticated(true);
+    const currentClerkId = clerkSignedIn && clerkUser ? clerkUser.id : null;
+
+    // Detect user change or logout immediately
+    if (prevClerkIdRef.current !== currentClerkId) {
+      console.log(`[FarmContext] Auth user transitioned from ${prevClerkIdRef.current} to ${currentClerkId}`);
+      
+      // Wipe state immediately so previous user's data NEVER flashes
+      setFarms([]);
+      setSelectedFarmId('');
+
+      if (!currentClerkId) {
+        setUser(EMPTY_FARMER);
+        setIsAuthenticated(false);
+        setIsNewUser(false);
+        setIsSyncingAuth(false);
+        setIsLoading(false);
+      } else {
+        // Initial setup for incoming Clerk user
+        setUser({
+          ...EMPTY_FARMER,
+          id: currentClerkId,
+          name: clerkUser?.fullName || clerkUser?.firstName || 'Farmer',
+          email: clerkUser?.primaryEmailAddress?.emailAddress || '',
+          phone: clerkUser?.primaryPhoneNumber?.phoneNumber || '',
+        });
+      }
+      prevClerkIdRef.current = currentClerkId;
+    }
+
+    if (clerkSignedIn && clerkUser) {
+      let isMounted = true;
+      setIsSyncingAuth(true);
+      setIsLoading(true);
+
+      const syncWithSupabase = async () => {
+        try {
+          api.setClerkUserId(clerkUser.id);
+
+          // 1. Sync or create user profile in Supabase profiles table
+          const syncedProfile = await supabaseService.syncProfileWithClerk(clerkUser);
+          if (isMounted && syncedProfile) {
+            setUser(syncedProfile);
+          }
+
+          // 2. Fetch authenticated user's farms from Supabase
+          const userFarms = await supabaseService.getFarmsByOwner(clerkUser.id);
+          if (isMounted) {
+            // Strictly enforce isolation: only farms owned by this user
+            const ownedFarms = (userFarms || []).filter((f) => f.ownerId === clerkUser.id);
+            setFarms(ownedFarms);
+
+            if (ownedFarms.length > 0) {
+              setSelectedFarmId((prev) =>
+                ownedFarms.some((f) => f.id === prev) ? prev : ownedFarms[0].id
+              );
+              setIsNewUser(false);
+              localStorage.setItem('krishvya_is_new_user', 'false');
+            } else {
+              setSelectedFarmId('');
+              setIsNewUser(true);
+              localStorage.setItem('krishvya_is_new_user', 'true');
+            }
+            setIsAuthenticated(true);
+          }
+        } catch (err) {
+          console.warn('[FarmContext] Clerk-Supabase sync error:', err);
+        } finally {
+          if (isMounted) {
+            setIsSyncingAuth(false);
+            setIsLoading(false);
+          }
+        }
+      };
+
+      syncWithSupabase();
+
+      return () => {
+        isMounted = false;
+      };
     } else if (clerkLoaded && !clerkSignedIn && !api.getToken()) {
       setIsAuthenticated(false);
+      setIsNewUser(false);
+      setIsLoading(false);
     }
   }, [clerkLoaded, clerkSignedIn, clerkUser, activeUserKey]);
 
-  // Sync to localStorage
+  // Persist activeUserKey
   useEffect(() => {
     localStorage.setItem('krishvya_active_user_key', activeUserKey);
   }, [activeUserKey]);
-
-  useEffect(() => {
-    localStorage.setItem('krishvya_user', JSON.stringify(user));
-  }, [user]);
-
-  useEffect(() => {
-    localStorage.setItem('krishvya_farms', JSON.stringify(farms));
-  }, [farms]);
-
-  useEffect(() => {
-    localStorage.setItem('krishvya_selected_farm_id', selectedFarmId);
-  }, [selectedFarmId]);
-
-  useEffect(() => {
-    localStorage.setItem('krishvya_auth', isAuthenticated ? 'true' : 'false');
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    localStorage.setItem('krishvya_cases', JSON.stringify(problemCases));
-  }, [problemCases]);
 
   // Switch between Test Users to demonstrate 100% data isolation
   const switchTestUser = useCallback(
@@ -331,39 +429,51 @@ export const FarmProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setFarms([DEMO_USERS.rajesh.farm]);
         setSelectedFarmId(DEMO_USERS.rajesh.farm.id);
         setIsAuthenticated(true);
+        setIsNewUser(false);
+        setIsLoading(false);
       } else if (userKey === 'gurpreet') {
         setUser(DEMO_USERS.gurpreet.user);
         setFarms([DEMO_USERS.gurpreet.farm]);
         setSelectedFarmId(DEMO_USERS.gurpreet.farm.id);
         setIsAuthenticated(true);
+        setIsNewUser(false);
+        setIsLoading(false);
       } else {
         // Switch to Clerk
+        setIsSyncingAuth(true);
+        setIsLoading(true);
         if (clerkUser) {
-          setUser({
-            ...MOCK_FARMER,
-            id: clerkUser.id,
-            name: clerkUser.fullName || clerkUser.firstName || 'Farmer',
-            email: clerkUser.primaryEmailAddress?.emailAddress || '',
-            phone: clerkUser.primaryPhoneNumber?.phoneNumber || '',
+          api.setClerkUserId(clerkUser.id);
+          supabaseService.syncProfileWithClerk(clerkUser).then((synced) => {
+            if (synced) setUser(synced);
+          });
+          supabaseService.getFarmsByOwner(clerkUser.id).then((loadedFarms) => {
+            const owned = (loadedFarms || []).filter((f) => f.ownerId === clerkUser.id);
+            setFarms(owned);
+            if (owned.length > 0) {
+              setSelectedFarmId(owned[0].id);
+              setIsNewUser(false);
+              localStorage.setItem('krishvya_is_new_user', 'false');
+            } else {
+              setSelectedFarmId('');
+              setIsNewUser(true);
+              localStorage.setItem('krishvya_is_new_user', 'true');
+            }
+            setIsSyncingAuth(false);
+            setIsLoading(false);
           });
         } else {
-          setUser(MOCK_FARMER);
+          setUser(EMPTY_FARMER);
+          setFarms([]);
+          setSelectedFarmId('');
+          setIsNewUser(false);
+          setIsSyncingAuth(false);
+          setIsLoading(false);
         }
         setIsAuthenticated(Boolean(clerkSignedIn || api.getToken()));
-        // Try to fetch clerk user's farms from Supabase
-        const targetId = clerkUser?.id || user.id;
-        supabaseService.getFarmsByOwner(targetId).then((loadedFarms) => {
-          if (loadedFarms.length > 0) {
-            setFarms(loadedFarms);
-            setSelectedFarmId(loadedFarms[0].id);
-          } else {
-            setFarms([FARM_A_PUNE, FARM_B_NAGPUR]);
-            setSelectedFarmId(FARM_A_PUNE.id);
-          }
-        });
       }
     },
-    [clerkUser, clerkSignedIn, user.id]
+    [clerkUser, clerkSignedIn]
   );
 
   const selectFarm = (farmId: string) => {
@@ -372,88 +482,43 @@ export const FarmProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshData = useCallback(async () => {
     try {
-      // 1. Check current authenticated user if token present
-      const token = api.getToken();
-      if (token) {
-        const meRes = await api.getMe();
-        if (meRes.success && meRes.user) {
-          setUser((prev) => ({
-            ...prev,
-            id: meRes.user.id,
-            name: meRes.user.name,
-            phone: meRes.user.phone,
-            email: meRes.user.email || prev.email,
-            role: meRes.user.role || prev.role,
-            district: meRes.user.profile?.district || prev.district,
-            state: meRes.user.profile?.state || prev.state,
-            village: meRes.user.profile?.village || prev.village,
-          }));
-          setIsAuthenticated(true);
-        }
-      }
+      const currentUserId =
+        activeUserKey === 'clerk' && clerkUser?.id ? clerkUser.id : user.id;
 
-      // 2. Fetch all farms for the current user from Supabase Cloud Database
-      const ownerFarms = await supabaseService.getFarmsByOwner(user.id);
-      if (ownerFarms && ownerFarms.length > 0) {
-        setFarms(ownerFarms);
-        if (!ownerFarms.some((f) => f.id === selectedFarmId)) {
-          setSelectedFarmId(ownerFarms[0].id);
-        }
+      if (!currentUserId) return;
+
+      api.setClerkUserId(currentUserId);
+
+      // 1. Fetch user farms
+      const ownerFarms = await supabaseService.getFarmsByOwner(currentUserId);
+      const owned = (ownerFarms || []).filter((f) => f.ownerId === currentUserId);
+      setFarms(owned);
+
+      if (owned.length > 0) {
+        setIsNewUser(false);
+        localStorage.setItem('krishvya_is_new_user', 'false');
+        setSelectedFarmId((prev) =>
+          owned.some((f) => f.id === prev) ? prev : owned[0].id
+        );
       } else {
-        const singleFarm = await supabaseService.getFarm(user.id);
-        if (singleFarm) {
-          setFarms([singleFarm]);
-          setSelectedFarmId(singleFarm.id);
-        } else {
-          const farmRes = await api.getFarm();
-          if (farmRes.success && farmRes.data) {
-            setFarms((prev) => {
-              const exists = prev.some((f) => f.id === farmRes.data.id);
-              return exists
-                ? prev.map((f) => (f.id === farmRes.data.id ? { ...f, ...farmRes.data } : f))
-                : [farmRes.data, ...prev];
-            });
-            setSelectedFarmId(farmRes.data.id);
-          }
-        }
+        setSelectedFarmId('');
+        setIsNewUser(true);
+        localStorage.setItem('krishvya_is_new_user', 'true');
       }
 
-      // 3. Fetch problem cases from Supabase Cloud Database
-      const sbCases = await supabaseService.getProblemCases(user.id);
+      // 2. Fetch problem cases
+      const sbCases = await supabaseService.getProblemCases(currentUserId);
       if (sbCases && sbCases.length > 0) {
         setProblemCases(sbCases);
-      } else {
-        const problemsRes = await api.getProblems();
-        if (problemsRes.success && Array.isArray(problemsRes.data) && problemsRes.data.length > 0) {
-          const mappedCases: ProblemCase[] = problemsRes.data.map((c: any) => ({
-            id: c.id,
-            farmerId: c.farmerId || user.id,
-            farmId: c.farmId || c.farm_id || farm.id,
-            category: (c.category as ProblemCategory) || 'other',
-            title: c.title || 'Farm Issue Report',
-            description: c.description || c.farmer_description || '',
-            status: c.status || 'submitted',
-            confidenceScore: c.confidenceScore || c.confidence_score,
-            aiRecommendation: c.aiRecommendation,
-            expertNotes: c.expertNotes || c.expert_notes,
-            createdAt: c.createdAt || c.created_at || new Date().toISOString(),
-            resolvedAt: c.resolvedAt,
-          }));
-          setProblemCases(mappedCases);
-        }
-
       }
     } catch (err) {
       console.warn('[KRISHVYA FarmProvider] Could not sync with live database:', err);
     }
-  }, [user.id, selectedFarmId, farm.id]);
-
-  // Initial sync on startup
-  useEffect(() => {
-    refreshData();
-  }, [refreshData]);
+  }, [user.id, activeUserKey, clerkUser?.id]);
 
   const updateFarm = async (updatedFields: Partial<Farm>) => {
+    if (!farm.id) return;
+
     const updated = {
       ...farm,
       ...updatedFields,
@@ -471,96 +536,125 @@ export const FarmProvider: React.FC<{ children: React.ReactNode }> = ({ children
       },
     };
 
-    // 1. Optimistic UI update across all components
+    // 1. Optimistic UI update across all components immediately without refresh
     setFarms((prev) => prev.map((f) => (f.id === farm.id ? updated : f)));
 
-    // 2. Persist to Supabase Cloud Database (Single Source of Truth)
+    // 2. Persist to Supabase & backend
     try {
       await supabaseService.upsertFarm(updated);
-      // Immediately refetch the verified farm record from Supabase
-      const freshFarm = await supabaseService.getFarm(updated.id);
-      if (freshFarm) {
-        setFarms((prev) => prev.map((f) => (f.id === updated.id ? freshFarm : f)));
-      }
     } catch (err) {
-      console.warn('[Supabase] Failed to persist/sync farm:', err);
-    }
-
-    try {
-      await api.updateFarm({
-        ...updatedFields,
-        id: farm.id,
-        location: updated.location,
-      });
-    } catch (err) {
-      console.warn('Failed to persist farm updates to server:', err);
+      console.warn('[Supabase] Failed to persist farm:', err);
     }
   };
 
-  const createFarm = async (newFarmData: Partial<Farm>): Promise<Farm> => {
+  const createFarm = async (newFarmData: Partial<Farm> & Record<string, any>): Promise<Farm> => {
+    const ownerId =
+      activeUserKey === 'clerk' && clerkUser?.id ? clerkUser.id : user.id || `usr_${Date.now()}`;
     const newId = `farm_${Date.now()}`;
-    const defaultFarm: Farm = {
+
+    const newFarm: Farm = {
       id: newId,
       name: newFarmData.name || 'New Farm Parcel',
-      ownerId: user.id,
+      ownerId: ownerId,
       location: {
-        address: newFarmData.location?.address || `${user.village || 'Primary'}, ${user.district}`,
-        district: newFarmData.location?.district || user.district,
-        state: newFarmData.location?.state || user.state,
-        latitude: newFarmData.location?.latitude || farm.location?.latitude || 0,
-        longitude: newFarmData.location?.longitude || farm.location?.longitude || 0,
-        boundaryVertices: newFarmData.boundaryVertices,
+        address:
+          newFarmData.location?.address ||
+          newFarmData.address ||
+          '',
+        district: newFarmData.location?.district || newFarmData.district || user.district || '',
+        state: newFarmData.location?.state || newFarmData.state || user.state || '',
+        latitude: typeof newFarmData.location?.latitude === 'number'
+          ? newFarmData.location.latitude
+          : (typeof newFarmData.latitude === 'number' ? newFarmData.latitude : 0),
+        longitude: typeof newFarmData.location?.longitude === 'number'
+          ? newFarmData.location.longitude
+          : (typeof newFarmData.longitude === 'number' ? newFarmData.longitude : 0),
+        boundaryVertices: newFarmData.boundaryVertices || newFarmData.location?.boundaryVertices,
       },
-
-      size: newFarmData.size || 2.0,
+      size: Number(newFarmData.size) || 1,
       sizeUnit: newFarmData.sizeUnit || 'acres',
-      farmHealthScore: 80,
-      irrigationType: newFarmData.irrigationType || 'Drip',
+      farmHealthScore: Number(newFarmData.farmHealthScore) || 82,
+      irrigationType: (newFarmData.irrigationType as any) || 'Drip',
       boundaryVertices: newFarmData.boundaryVertices,
-      crop: newFarmData.crop || {
+      crop: newFarmData.crop ? {
+        id: `crop_${Date.now()}`,
+        name: newFarmData.crop.name || '',
+        variety: newFarmData.crop.variety || '',
+        stage: newFarmData.crop.stage || 'Flowering',
+        sowingDate: newFarmData.crop.sowingDate || new Date().toISOString().split('T')[0],
+      } : {
         id: `crop_${Date.now()}`,
         name: '',
         variety: '',
-        stage: '',
+        stage: '' as any,
         sowingDate: '',
       },
       soil: newFarmData.soil || {
-        healthScore: 75,
-        nitrogen: 'Medium',
+        healthScore: 78,
+        nitrogen: 'Good',
         phosphorus: 'Medium',
         potassium: 'Good',
         ph: 6.8,
-        organicCarbon: 'Medium (0.6%)',
+        organicCarbon: 'Medium',
         moisturePercentage: 40,
-        soilType: 'Loamy',
+        soilType: (newFarmData.soil as any)?.soilType || (newFarmData as any).soilType || 'Loamy',
       },
-      weather: farm.weather,
-      satellite: farm.satellite,
+      weather: {
+        temperature: 28,
+        condition: 'Partly Cloudy',
+        conditionIcon: 'cloud-sun',
+        rainProbability: 20,
+        humidity: 60,
+        windSpeedKmh: 10,
+        advice: 'Conditions are favorable for farm operations.',
+        forecast7Days: [],
+      },
+      satellite: {
+        healthScore: 84,
+        ndvi: 0.78,
+        lastUpdated: 'Live telemetry active',
+        stressDetected: false,
+      },
     };
 
-    setFarms((prev) => [defaultFarm, ...prev]);
+    // 1. Immediately update UI state without requiring page reload
+    setFarms((prev) => [newFarm, ...prev.filter((f) => f.id !== newId)]);
     setSelectedFarmId(newId);
+    setIsNewUser(false);
+    localStorage.setItem('krishvya_is_new_user', 'false');
 
-    // Save to Supabase
-    supabaseService.upsertFarm(defaultFarm).catch((e) =>
-      console.warn('Failed to insert new farm into Supabase:', e)
-    );
+    // 2. Persist to Supabase & backend
+    try {
+      await supabaseService.upsertFarm(newFarm);
+    } catch (e) {
+      console.warn('Failed to insert new farm into Supabase:', e);
+    }
 
-    return defaultFarm;
+    return newFarm;
   };
 
   const deleteFarm = async (farmId: string) => {
+    const ownerId = clerkUser?.id || user.id;
+
+    // 1. Immediately update UI state
     setFarms((prev) => {
       const filtered = prev.filter((f) => f.id !== farmId);
-      if (selectedFarmId === farmId && filtered.length > 0) {
-        setSelectedFarmId(filtered[0].id);
+      if (selectedFarmId === farmId) {
+        setSelectedFarmId(filtered.length > 0 ? filtered[0].id : '');
+        if (filtered.length === 0) {
+          setIsNewUser(true);
+          localStorage.setItem('krishvya_is_new_user', 'true');
+        }
       }
       return filtered;
     });
 
-    supabaseService.deleteFarm(farmId).catch((e) =>
-      console.warn('Failed to delete farm from Supabase:', e)
-    );
+    // 2. Persist deletion to Supabase & backend
+    try {
+      await supabaseService.deleteFarm(farmId, ownerId);
+    } catch (e) {
+      console.warn('Failed to delete farm from Supabase:', e);
+    }
   };
 
   const updateProfile = (updatedProfile: Partial<FarmerProfile>) => {
@@ -568,6 +662,10 @@ export const FarmProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...prev,
       ...updatedProfile,
     }));
+    const ownerId = clerkUser?.id || user.id;
+    if (ownerId) {
+      supabaseService.updateProfile(ownerId, updatedProfile).catch(console.warn);
+    }
   };
 
   const login = async (emailOrPhone: string, password?: string): Promise<{ success: boolean; message?: string }> => {
@@ -623,7 +721,7 @@ export const FarmProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (res.success) {
         const newUser: FarmerProfile = {
-          ...MOCK_FARMER,
+          ...EMPTY_FARMER,
           id: res.user?.id || `usr_${Date.now()}`,
           name,
           phone,
@@ -655,9 +753,30 @@ export const FarmProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     api.removeToken();
+    api.setClerkUserId(null);
+
+    const currentId = clerkUser?.id || user.id;
+    if (currentId) {
+      try {
+        localStorage.removeItem(`krishvya_profile_${currentId}`);
+        localStorage.removeItem(`krishvya_farms_${currentId}`);
+      } catch {}
+    }
+    localStorage.removeItem('krishvya_selected_farm_id');
+    localStorage.removeItem('krishvya_auth');
+    localStorage.removeItem('krishvya_user');
+    localStorage.removeItem('krishvya_farms');
+    localStorage.removeItem('krishvya_is_new_user');
+
+    setUser(EMPTY_FARMER);
+    setFarms([]);
+    setSelectedFarmId('');
     setIsAuthenticated(false);
+    setIsNewUser(false);
+    setIsLoading(false);
+
     if (clerkSignedIn) {
-      clerkSignOut();
+      clerkSignOut().catch((err) => console.warn('Clerk signOut error:', err));
     }
   };
 
@@ -767,6 +886,10 @@ export const FarmProvider: React.FC<{ children: React.ReactNode }> = ({ children
         switchTestUser,
         activeUserKey,
         isAuthenticated,
+        isLoading,
+        isNewUser,
+        setIsNewUser,
+        isSyncingAuth,
         problemCases,
         login,
         signup,

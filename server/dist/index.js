@@ -1,6 +1,15 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+// Explicitly load server/.env before any routes or services initialize
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(process.cwd(), 'server/.env') });
+dotenv.config();
+console.log('🔑 GEMINI_API_KEY loaded:', Boolean(process.env.GEMINI_API_KEY));
 import { seedInitialData } from './db.js';
 import { authRoutes } from './routes/authRoutes.js';
 import { farmRoutes } from './routes/farmRoutes.js';
@@ -12,7 +21,6 @@ import { aiRoutes } from './routes/aiRoutes.js';
 import { weatherRoutes, satelliteRoutes } from './routes/weatherRoutes.js';
 import { tankRoutes } from './routes/tankRoutes.js';
 import { geocodingRoutes } from './routes/geocodingRoutes.js';
-dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5001;
 // Middleware - allow up to 15MB for high-res leaf photographs

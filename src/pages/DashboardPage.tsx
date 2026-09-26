@@ -16,7 +16,7 @@ import { Bell, MapPin, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const DashboardPage: React.FC = () => {
-  const { user, farm, problemCases } = useFarm();
+  const { user, farm, farms, problemCases } = useFarm();
   const { t } = useLanguage();
 
   return (
@@ -32,7 +32,7 @@ export const DashboardPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-earth-100/90 text-earth-900 text-xs sm:text-sm font-semibold border border-earth-200">
               <MapPin className="w-3.5 h-3.5 text-krishi-700" />
-              <span>{farm.location.address || 'Maharashtra, India'}</span>
+              <span>{farm.location?.address || 'Maharashtra, India'}</span>
               <span className="text-gray-400">•</span>
               <span>{farm.size} {farm.sizeUnit}</span>
             </div>
@@ -69,6 +69,26 @@ export const DashboardPage: React.FC = () => {
 
         {/* Dashboard Body */}
         <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
+          {/* Welcome Banner if user has 0 farms */}
+          {farms.length === 0 && (
+            <div className="p-6 bg-gradient-to-r from-krishi-50 to-emerald-50 rounded-3xl border border-krishi-200 shadow-soft flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="space-y-1 text-center sm:text-left">
+                <h3 className="text-lg font-black text-krishi-900">
+                  Welcome to KRISHVYA Farm Intelligence! 🌾
+                </h3>
+                <p className="text-sm text-gray-600">
+                  You haven't set up your farm parcel yet. Register your farm parcel to enable real-time satellite imagery, localized weather forecasts, and AI crop recommendations.
+                </p>
+              </div>
+              <Link
+                to="/farm"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-krishi-700 hover:bg-krishi-800 text-white shadow-xs transition-all shrink-0"
+              >
+                + Register Farm Parcel
+              </Link>
+            </div>
+          )}
+
           {/* Greeting & Prominent Emergency Problem Button Bar */}
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-3xl border border-earth-200/90 shadow-soft">
             <div>

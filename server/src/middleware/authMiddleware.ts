@@ -15,6 +15,17 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  const clerkUserId = (req.headers['x-clerk-user-id'] || req.headers['x-farmer-id'] || req.headers['x-user-id']) as string;
+  if (clerkUserId) {
+    req.user = {
+      id: clerkUserId,
+      phone: (req.headers['x-user-phone'] as string) || '',
+      role: (req.headers['x-user-role'] as string) || 'FARMER',
+      name: (req.headers['x-user-name'] as string) || 'Farmer',
+    };
+    return next();
+  }
+
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -40,6 +51,17 @@ export function authMiddleware(req: AuthenticatedRequest, res: Response, next: N
 }
 
 export function optionalAuthMiddleware(req: AuthenticatedRequest, _res: Response, next: NextFunction): void {
+  const clerkUserId = (req.headers['x-clerk-user-id'] || req.headers['x-farmer-id'] || req.headers['x-user-id']) as string;
+  if (clerkUserId) {
+    req.user = {
+      id: clerkUserId,
+      phone: (req.headers['x-user-phone'] as string) || '',
+      role: (req.headers['x-user-role'] as string) || 'FARMER',
+      name: (req.headers['x-user-name'] as string) || 'Farmer',
+    };
+    return next();
+  }
+
   const authHeader = req.headers.authorization;
 
   if (authHeader && authHeader.startsWith('Bearer ')) {

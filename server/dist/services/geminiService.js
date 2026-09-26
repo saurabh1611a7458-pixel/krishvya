@@ -1,7 +1,20 @@
-import { GoogleGenAI, Type } from '@google/genai';
-const apiKey = process.env.GEMINI_API_KEY || '';
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
-// Resilient agricultural knowledge base for Indian crops (ICAR / KVK verified)
+import { GoogleGenAI } from '@google/genai';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+// Explicitly load server/.env before client initialization
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config({ path: path.resolve(process.cwd(), 'server/.env') });
+dotenv.config();
+function getGenAIClient() {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key || key.trim() === '' || key === 'your_gemini_api_key_here') {
+        return null;
+    }
+    return new GoogleGenAI({ apiKey: key.trim() });
+}
 function getAgriculturalFallbackDiagnosis(cropName = 'Soybean', notes = '') {
     const normalizedCrop = cropName.toLowerCase();
     const lowerNotes = notes.toLowerCase();
@@ -26,469 +39,288 @@ function getAgriculturalFallbackDiagnosis(cropName = 'Soybean', notes = '') {
                 'Whitefly (Bemisia tabaci) transmitting begomovirus during warm humid periods',
             ],
             organicTreatment: 'Spray 5% Neem Seed Kernel Extract (NSKE) @ 50ml/pump or Dashparni Ark to repel whitefly vectors.',
-            chemicalTreatment: 'Diafenthiuron 50% WP @ 1.2g/L or Afidopyropen 50 g/L DC @ 2ml/L to manage vector population.',
+            chemicalTreatment: 'Spray Diafenthiuron 50 WP @ 20g/pump (15L water) or Flonicamid 50 WG @ 6g/pump.',
             preventativeMeasures: [
-                'Uproot and burn severely infected plants',
-                'Install yellow sticky traps (10 traps per acre)',
-                'Eradicate weed hosts like Abutilon indicum near farm borders',
+                'Maintain clean field borders free from weeds like Abutilon indicum',
+                'Avoid excessive synthetic nitrogenous fertilizers that encourage succulent foliage',
+                'Adopt intercropping with cowpea or marigold as trap crops',
             ],
-            precautions: 'Always check the product label and follow recommended PPE guidelines. Consult your local KVK officer before spraying.',
-            isUncertain: false,
+            precautions: 'Do not spray during peak afternoon heat. Wear protective mask and gloves.',
             requiresExpertReview: false,
             aiEngine: 'icar-kvk-expert-engine',
         };
     }
-    if (normalizedCrop.includes('wheat') || lowerNotes.includes('wheat')) {
-        return {
-            diseaseName: 'Yellow / Stripe Rust of Wheat',
-            scientificName: 'Puccinia striiformis',
-            crop: 'Wheat',
-            confidence: 90,
-            severity: 'High',
-            symptoms: [
-                'Yellow pustules arranged in linear stripes on leaves',
-                'Chlorotic streaks turning powdery orange-yellow',
-                'Stunted growth and reduced earhead grain filling',
-            ],
-            actionSteps: [
-                'Check cooler and shaded corners of your field for yellow powdery pustules',
-                'Avoid excessive top-dressing of nitrogen fertilizer',
-                'Apply recommended triazole fungicide at first appearance on foliage',
-            ],
-            causes: [
-                'Cool temperatures (10-20°C) with high humidity and morning dew',
-            ],
-            organicTreatment: 'Spray bio-fungicide Trichoderma harzianum @ 10g/L with cow urine formulation (10%) at first sign of infection.',
-            chemicalTreatment: 'Propiconazole 25% EC (Tilt) @ 1ml/L or Tebuconazole 25.9% EC @ 1.2ml/L with 200L water/acre.',
-            preventativeMeasures: [
-                'Plant resistant varieties like HD-2967 or PBW-550',
-                'Avoid excessive nitrogen fertilization beyond recommended dose',
-                'Scout cooler, shaded corners of the field weekly',
-            ],
-            precautions: 'Always read manufacturer label for dosage and spray with adequate water volume (200L/acre).',
-            isUncertain: false,
-            requiresExpertReview: false,
-            aiEngine: 'icar-kvk-expert-engine',
-        };
-    }
-    if (normalizedCrop.includes('rice') || lowerNotes.includes('rice') || lowerNotes.includes('paddy')) {
-        return {
-            diseaseName: 'Rice Blast (Leaf Blast)',
-            scientificName: 'Magnaporthe oryzae',
-            crop: 'Paddy Rice',
-            confidence: 86,
-            severity: 'Medium',
-            symptoms: [
-                'Spindle-shaped elliptical spots with greyish centers and brown margins',
-                'Lesions enlarge and coalesce, drying up entire leaves',
-                'Blast lesions on neck nodes preventing panicle emergence',
-            ],
-            actionSteps: [
-                'Maintain light standing water in paddy fields; avoid severe soil drying cracks',
-                'Apply bio-fungicide or balanced potassium to fortify leaf cell walls',
-                'Remove wild grassy weed hosts along bunds',
-            ],
-            causes: [
-                'High relative humidity (>90%) with prolonged leaf wetness and moderate warmth',
-            ],
-            organicTreatment: 'Foliar spray of Pseudomonas fluorescens @ 5g/L combined with Panchagavya 3% solution.',
-            chemicalTreatment: 'Tricyclazole 75% WP (Baan) @ 0.6g/L or Isoprothiolane 40% EC @ 1.5ml/L.',
-            preventativeMeasures: [
-                'Maintain balanced potassium application to strengthen cell walls',
-                'Avoid field drying cracks during vegetative phase',
-                'Burn stubble after harvest to eliminate fungal overwintering',
-            ],
-            precautions: 'Ensure proper dilution in clean water and verify with your local agricultural extension service.',
-            isUncertain: false,
-            requiresExpertReview: false,
-            aiEngine: 'icar-kvk-expert-engine',
-        };
-    }
-    // Default: Soybean (Maharashtra / Central India flagship crop)
     return {
-        diseaseName: 'Early Leaf Blight & Cercospora Leaf Spot',
-        scientificName: 'Cercospora sojina & Alternaria alternata',
-        crop: 'Soybean (JS-335 / JS-9560)',
-        confidence: 92,
+        diseaseName: 'Soybean Rust / Yellow Mosaic',
+        scientificName: 'Phakopsora pachyrhizi / Geminivirus',
+        crop: 'Soybean',
+        confidence: 86,
         severity: 'Medium',
         symptoms: [
-            'Circular to angular reddish-brown lesions with distinct purple borders',
-            'Premature defoliation starting from lower canopy leaves',
-            'Target-like concentric rings visible on upper leaf surfaces',
+            'Small, water-soaked chlorotic spots on lower leaves',
+            'Pustules turning reddish-brown on abaxial leaf surface',
+            'Premature defoliation starting from lower canopy',
         ],
         actionSteps: [
-            'Pluck and destroy severely spotted lower leaves to prevent fungal spore splash',
-            'Delay sprinkler irrigation while foliage is damp to cut humidity',
-            'Apply bio-fungicide or label-approved copper/mancozeb spray on standing crop',
+            'Ensure proper drainage trenches to remove standing water',
+            'Spray broad-spectrum systemic fungicide across infected parcel',
+            'Scout daily during humid cloudy weather',
         ],
         causes: [
-            'Frequent cloudy rain showers with humid warmth favoring fungal spore reproduction',
+            'High relative humidity (>85%) combined with leaf wetness for >6 hours',
+            'Whitefly vector transmission under intermittent dry and warm spells',
         ],
-        organicTreatment: 'Spray Trichoderma viride @ 5g/L + Neem Oil 10,000 ppm @ 3ml/L. Repeat after 10 days.',
-        chemicalTreatment: 'Mancozeb 75% WP @ 2.5g/L or Pyraclostrobin 20% WG @ 1g/L applied thoroughly across foliage.',
+        organicTreatment: 'Spray Pseudomonas fluorescens 1% WP @ 50g/pump or Trichoderma viride @ 5g/L on affected foliage.',
+        chemicalTreatment: 'Spray Tebuconazole 25.9% EC @ 15ml/pump or Hexaconazole 5% EC @ 20ml/pump in 15L water.',
         preventativeMeasures: [
-            'Delay overhead irrigation when humidity exceeds 80%',
-            'Ensure 45 cm row-to-row spacing for adequate air circulation',
-            'Collect and destroy infected fallen leaf debris after harvest',
+            'Use certified seeds of resistant varieties (JS 97-52, NRC 37)',
+            'Follow recommended seed treatment with Trichoderma (5g/kg seed)',
+            'Maintain 45 cm row-to-row spacing for optimal air circulation',
         ],
-        precautions: 'Follow exact product label directions and safety guidelines. Consult local agricultural authorities for regional advisories.',
-        isUncertain: false,
+        precautions: 'Do not spray during active honeybee foraging hours (morning 8-11 AM).',
         requiresExpertReview: false,
         aiEngine: 'icar-kvk-expert-engine',
     };
 }
 export async function diagnoseCropDisease(imageBase64, mimeType = 'image/jpeg', cropName = 'Soybean', notes = '') {
-    // If Gemini API is available, run multimodal inference
-    if (ai && apiKey) {
-        try {
-            console.log('🤖 Invoking Google Gemini 2.5 Flash for multimodal leaf diagnosis...');
-            // Clean base64 string
-            const base64Data = imageBase64.replace(/^data:image\/[a-zA-Z]+;base64,/, '');
-            const prompt = `You are KRISHVYA Vision Doctor, an expert plant pathologist and agronomist working with smallholder farmers across Indian villages.
-Analyze this leaf/crop photograph carefully. The crop is reported as: ${cropName}. Additional farmer notes: "${notes}".
-Identify whether there is a crop disease, pest infestation, nutrient deficiency, or if the leaf is healthy.
-IMPORTANT INSTRUCTIONS FOR FARMER SAFETY:
-1. Provide 2 to 3 very clear, concise, actionable steps ("actionSteps") answering "What to do now?" for the farmer.
-2. If the image is blurry, dark, not a plant leaf, or ambiguous, set confidence below 75, set isUncertain to true, and set uncertaintyMessage to: "⚠️ I'm not sure about this diagnosis. Please upload a clearer photo or consult an agriculture expert."
-3. Do not invent disease names or unregistered chemical dosages. For chemical treatment, suggest standard CIBRC-approved formulations and always specify that the farmer must follow the product label and local agricultural extension guidance.`;
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: [
-                    {
-                        inlineData: {
-                            data: base64Data,
-                            mimeType: mimeType || 'image/jpeg',
+    const aiClient = getGenAIClient();
+    if (aiClient && imageBase64) {
+        const candidateModels = [
+            'gemini-flash-lite-latest',
+            'gemini-3.6-flash',
+            'gemini-3.5-flash-lite',
+            'gemini-3.1-flash-lite',
+            'gemini-3.8-flash',
+            'gemini-flash-latest',
+        ];
+        for (const model of candidateModels) {
+            try {
+                console.log(`Diagnosing ${cropName} leaf disease with ${model}...`);
+                const base64Clean = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
+                const prompt = `You are an expert plant pathologist and agricultural scientist specializing in Indian crops.
+Analyze this crop leaf image for disease, pest damage, or nutrient deficiency.
+Target Crop: ${cropName}
+Farmer Notes: ${notes || 'None provided'}
+
+Provide a structured, precise diagnosis in JSON format with fields: diseaseName, scientificName, crop, confidence (60-99), severity, symptoms, actionSteps, causes, organicTreatment, chemicalTreatment, preventativeMeasures, precautions, requiresExpertReview.
+Return ONLY valid JSON.`;
+                const response = await aiClient.models.generateContent({
+                    model,
+                    contents: [
+                        {
+                            role: 'user',
+                            parts: [
+                                { text: prompt },
+                                {
+                                    inlineData: {
+                                        mimeType,
+                                        data: base64Clean,
+                                    },
+                                },
+                            ],
                         },
+                    ],
+                    config: {
+                        temperature: 0.2,
+                        responseMimeType: 'application/json',
                     },
-                    prompt,
-                ],
-                config: {
-                    responseMimeType: 'application/json',
-                    responseJsonSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            diseaseName: { type: Type.STRING, description: 'Common name of crop disease or condition (or Healthy)' },
-                            scientificName: { type: Type.STRING, description: 'Scientific or pathogen name' },
-                            crop: { type: Type.STRING, description: 'Crop name identified' },
-                            confidence: { type: Type.INTEGER, description: 'Diagnostic confidence percentage (0-100)' },
-                            severity: {
-                                type: Type.STRING,
-                                description: 'Severity level',
-                                enum: ['Low', 'Medium', 'High', 'Critical'],
-                            },
-                            symptoms: {
-                                type: Type.ARRAY,
-                                items: { type: Type.STRING },
-                                description: 'Visual symptoms observed on the leaf',
-                            },
-                            actionSteps: {
-                                type: Type.ARRAY,
-                                items: { type: Type.STRING },
-                                description: '2 to 3 short actionable steps answering "What to do now?"',
-                            },
-                            causes: {
-                                type: Type.ARRAY,
-                                items: { type: Type.STRING },
-                                description: '1 to 2 key causes or environmental triggers',
-                            },
-                            organicTreatment: { type: Type.STRING, description: 'Bio-control or organic treatment' },
-                            chemicalTreatment: { type: Type.STRING, description: 'Standard chemical remedy with label advisory' },
-                            preventativeMeasures: {
-                                type: Type.ARRAY,
-                                items: { type: Type.STRING },
-                                description: 'Field management steps to prevent recurrence',
-                            },
-                            precautions: { type: Type.STRING, description: 'Safety precaution regarding pesticide application' },
-                            isUncertain: { type: Type.BOOLEAN, description: 'True if photo is unclear or diagnosis uncertain' },
-                            uncertaintyMessage: { type: Type.STRING, description: 'Message displayed when uncertain' },
-                            requiresExpertReview: {
-                                type: Type.BOOLEAN,
-                                description: 'True if disease is high-risk or confidence is under 80%',
-                            },
-                        },
-                        required: [
-                            'diseaseName',
-                            'crop',
-                            'confidence',
-                            'severity',
-                            'symptoms',
-                            'actionSteps',
-                            'organicTreatment',
-                            'chemicalTreatment',
-                            'preventativeMeasures',
-                        ],
-                    },
-                },
-            });
-            if (response.text) {
-                const parsed = JSON.parse(response.text);
-                parsed.aiEngine = 'gemini-2.5-flash';
-                if (parsed.confidence < 75 || parsed.isUncertain) {
-                    parsed.isUncertain = true;
-                    parsed.uncertaintyMessage =
-                        parsed.uncertaintyMessage ||
-                            "⚠️ I'm not sure about this diagnosis. Please upload a clearer photo or consult an agriculture expert.";
-                    parsed.requiresExpertReview = true;
+                });
+                if (response.text) {
+                    const parsed = JSON.parse(response.text);
+                    return {
+                        ...parsed,
+                        aiEngine: model,
+                    };
                 }
-                else {
-                    parsed.requiresExpertReview =
-                        parsed.confidence < 85 || parsed.severity === 'High' || parsed.severity === 'Critical';
-                }
-                if (!parsed.precautions) {
-                    parsed.precautions =
-                        'Always follow chemical product label instructions and local agricultural extension (KVK) guidance.';
-                }
-                return parsed;
+            }
+            catch (err) {
+                console.error(`Gemini vision diagnosis error with ${model}:`, err?.message || err);
             }
         }
-        catch (error) {
-            console.warn('⚠️ Gemini multimodal vision call error, falling back to agricultural knowledge engine:', error?.message);
-        }
     }
-    // Resilient expert fallback
     return getAgriculturalFallbackDiagnosis(cropName, notes);
 }
-export async function generateDailyFarmPlan(farmContext = null, pastCases = [], language = 'english') {
+export async function generateDailyFarmPlan(farmContext, language = 'english') {
     const crop = farmContext?.crop?.name || 'Soybean';
     const stage = farmContext?.crop?.stage || 'Flowering';
-    const variety = farmContext?.crop?.variety || 'JS-335';
     const acres = farmContext?.size || 2.5;
-    const rainProb = farmContext?.weather?.rainProbability ?? 60;
-    const temp = farmContext?.weather?.temperature ?? 28;
-    const moisture = farmContext?.soil?.moisturePercentage ?? 42;
-    const soilType = farmContext?.soil?.soilType || 'Black Cotton';
-    // Build physical, grounded agricultural cards
-    const cards = [];
-    // 1. 💧 Smart Irrigation Card
-    const shouldIrrigate = rainProb < 40 && moisture < 35;
-    const waterSaved = shouldIrrigate ? 0 : Math.round(acres * 18000);
-    const costSaved = shouldIrrigate ? 0 : Math.round(acres * 56);
-    cards.push({
-        id: `rec_irrigation_${Date.now()}`,
-        category: 'irrigation',
-        title: shouldIrrigate ? '💧 Drip Irrigation Required' : '💧 Delay Irrigation Today (सिंचाई टालें)',
-        summary: shouldIrrigate
-            ? `Root zone moisture is low (${moisture}%). Run drip lines for 2.5 hours before 10 AM.`
-            : `Rain is expected within 24h (${rainProb}%). Soil moisture is ${moisture}%. Delay pumping to conserve groundwater.`,
-        detailedAction: shouldIrrigate
-            ? `Ensure drippers emit 2–4 LPH. Avoid overhead sprinkler to prevent leaf fungal infection.`
-            : `Conserves ~${waterSaved.toLocaleString()} Liters of groundwater and saves ~₹${costSaved} in pump electricity.`,
-        urgency: shouldIrrigate ? 'immediate' : 'optimal',
-        confidenceScore: 94,
-        metrics: {
-            soilMoisture: `${moisture}%`,
-            rainProbability: `${rainProb}%`,
-            waterSavedLiters: waterSaved,
-            costSavedInr: costSaved,
-        },
-    });
-    // 2. 🌱 Crop Health & Nutrition Card
-    cards.push({
-        id: `rec_crop_${Date.now()}`,
-        category: 'crop_health',
-        title: `🌱 ${crop} Stage: ${stage}`,
-        summary: `${variety} at ${stage} stage requires focused flower retention and phosphorus/potassium support.`,
-        detailedAction: `Foliar spray 00:52:34 (MKP) @ 10g/L + Boron 20% @ 1g/L. Avoid high nitrogen urea to prevent vegetative drop.`,
-        urgency: 'optimal',
-        confidenceScore: 92,
-        metrics: {
-            crop,
-            stage,
-            vigorStatus: 'Good Canopy (NDVI 0.78)',
-        },
-    });
-    // 3. 🌦 Weather & Micro-climate Card
-    cards.push({
-        id: `rec_weather_${Date.now()}`,
-        category: 'weather',
-        title: `🌦 Today's Micro-Climate Outlook`,
-        summary: `${temp}°C ambient temperature with ${rainProb}% precipitation likelihood. High humidity favors fungal spores.`,
-        detailedAction: `Schedule scouting during cool morning hours (7–10 AM). Postpone all chemical spraying if wind exceeds 15 km/h.`,
-        urgency: rainProb > 50 ? 'warning' : 'info',
-        confidenceScore: 90,
-        metrics: {
-            temperature: `${temp}°C`,
-            rainLikelihood: `${rainProb}%`,
-            spraySafeWindow: rainProb > 50 ? 'Closed (Wash-off Risk)' : 'Open (8 AM - 11 AM)',
-        },
-    });
-    // 4. 🧪 Soil Health & Microbial Activation
-    cards.push({
-        id: `rec_soil_${Date.now()}`,
-        category: 'soil',
-        title: `🧪 Soil Condition: ${soilType}`,
-        summary: `Neutral pH (6.7), adequate potassium, and medium organic carbon (0.6%).`,
-        detailedAction: `Drench or apply Jeevamrutha @ 200 L/acre or compost tea to boost beneficial mycorrhizae and soil microbial carbon.`,
-        urgency: 'info',
-        confidenceScore: 89,
-        metrics: {
-            soilScore: `${farmContext?.soil?.healthScore || 78}/100`,
-            organicCarbon: farmContext?.soil?.organicCarbon || '0.6% (Medium)',
-            ph: farmContext?.soil?.ph || 6.7,
-        },
-    });
-    // 5. 🐛 Disease & Pest Threshold Warning
-    const hasPastLeafSpot = pastCases.some((c) => (c.title || c.description || '').toLowerCase().includes('leaf'));
-    cards.push({
-        id: `rec_disease_${Date.now()}`,
-        category: 'disease',
-        title: `🐛 Pest & Blight Scouting Watch`,
-        summary: hasPastLeafSpot
-            ? `Follow-up on past leaf spot incidence: inspect lower canopy for Cercospora spore flare-ups.`
-            : `High humidity creates risk for early leaf spot and semilooper caterpillar influx.`,
-        detailedAction: `Scout 20 random plants per acre. If leaf lesions exceed 5%, spray bio-agent Trichoderma viride @ 5g/L + 5% NSKE neem spray.`,
-        urgency: hasPastLeafSpot ? 'warning' : 'info',
-        confidenceScore: 88,
-        metrics: {
-            scoutingPriority: 'High',
-            preventionMethod: '5% Neem Extract (NSKE)',
-        },
-    });
-    // 6. 📅 Today's Action Plan
-    cards.push({
-        id: `rec_today_${Date.now()}`,
-        category: 'today_actions',
-        title: `📅 What Should I Do Today? (आज की कार्ययोजना)`,
-        summary: `Your 3 prioritized field tasks for today:`,
-        detailedAction: `1. Keep tubewell OFF (rain recharge expected).\n2. Inspect drainage furrows to prevent waterlogging.\n3. Scout lower leaves for early caterpillar/fungal spots.`,
-        urgency: 'optimal',
-        confidenceScore: 95,
-    });
-    // 7. 🌾 Smart Crop & Intercropping
-    cards.push({
-        id: `rec_intercropping_${Date.now()}`,
-        category: 'intercropping',
-        title: `🌾 Intercropping & Companion Crop Recommendation`,
-        summary: `Pigeonpea (Arhar / Tur) + Soybean in 4:2 row planting geometry.`,
-        detailedAction: `Provides biological nitrogen fixation, breaks pest cycles, and boosts net acre profit by ~28% over sole cropping.`,
-        urgency: 'info',
-        confidenceScore: 91,
-    });
     return {
-        cards,
-        summary: `Namaste! KRISHVYA AI Scientist analyzed your ${acres}-acre ${crop} (${stage}) field in ${farmContext?.location?.address || 'Vidarbha'}. All 7 daily recommendations are ready.`,
+        cards: [
+            {
+                id: 'plan_irrig_01',
+                category: 'irrigation',
+                title: `💧 ${crop} Irrigation Schedule`,
+                summary: 'Maintain soil moisture at 65-70% Field Capacity.',
+                detailedAction: 'Check soil moisture at 15cm depth. If moist, avoid watering to prevent root hypoxia.',
+                urgency: 'medium',
+                confidenceScore: 92,
+            },
+            {
+                id: 'plan_nutr_01',
+                category: 'nutrition',
+                title: `🌿 ${crop} Balanced Nutrition (${stage})`,
+                summary: `Critical ${stage} nutrient uptake phase.`,
+                detailedAction: 'Foliar spray of 19:19:19 (NPK) @ 5g/L water + Boron 20% @ 1g/L to prevent premature blossom drop.',
+                urgency: 'high',
+                confidenceScore: 94,
+            },
+        ],
+        summary: `KRISHVYA AI Scientist analyzed your ${acres}-acre ${crop} (${stage}) field.`,
         aiEngine: 'icar-kvk-expert-engine',
     };
 }
-export async function chatFarmAdvisor(message, history = [], farmContext = null, language = 'english', pastMemories = [], pastCases = []) {
-    // Format past farm memory
+export async function chatFarmAdvisor(message, history = [], farmContext = null, language = 'english', pastMemories = [], pastCases = [], knowledgeSnippets = []) {
+    const aiClient = getGenAIClient();
+    // 1. Check for missing API key per user specification
+    if (!aiClient) {
+        const errorMsg = 'GEMINI_API_KEY or GOOGLE_API_KEY is not configured in server environment or server/.env';
+        console.error(`[AI Advisor Error] ${errorMsg}`);
+        return {
+            reply: 'AI service is not configured.',
+            aiEngine: 'gemini-2.5-flash',
+            confidence: 0,
+            requiresExpertReview: false,
+            errorType: 'API_KEY_MISSING',
+            rawError: errorMsg,
+        };
+    }
+    // 2. Dynamic Real Farm Context Grounding
+    const farmerName = farmContext?.farmerName || farmContext?.userName || 'Farmer';
+    const farmName = farmContext?.name || farmContext?.farmName || (farmContext ? 'Registered Farm' : 'Farm information is not available yet.');
+    const locationStr = farmContext?.location?.address || farmContext?.location?.district
+        ? `${farmContext.location.address || ''}${farmContext.location.district ? ` (${farmContext.location.district})` : ''}`
+        : 'Farm information is not available yet.';
+    const sizeStr = farmContext?.size
+        ? `${farmContext.size} ${farmContext.sizeUnit || 'acres'}`
+        : 'Farm information is not available yet.';
+    const cropStr = farmContext?.crop?.name
+        ? `${farmContext.crop.name} (Variety: ${farmContext.crop.variety || 'Standard'}, Stage: ${farmContext.crop.stage || 'Active'}, Sown: ${farmContext.crop.sowingDate || 'Unspecified'})`
+        : 'Farm information is not available yet.';
+    const soilStr = farmContext?.soil
+        ? `Type: ${farmContext.soil.soilType || 'Unspecified'}, pH: ${farmContext.soil.ph ?? 'N/A'}, Moisture: ${farmContext.soil.moisturePercentage ?? 'N/A'}%, Health Score: ${farmContext.soil.healthScore ?? 'N/A'}`
+        : 'Farm information is not available yet.';
+    const irrigationStr = farmContext?.irrigationType || 'Farm information is not available yet.';
+    const weatherStr = farmContext?.weather
+        ? `Temp: ${farmContext.weather.temperature ?? 'N/A'}°C, Condition: ${farmContext.weather.condition || 'N/A'}, Humidity: ${farmContext.weather.humidity ?? 'N/A'}%, Rain Probability: ${farmContext.weather.rainProbability ?? 'N/A'}%, Advice: "${farmContext.weather.advice || 'None'}"`
+        : 'Farm information is not available yet.';
     const memoryContext = pastCases.length > 0
-        ? `\n- Past Farm History & Problems: ${pastCases.slice(0, 3).map((c) => `[${c.category || 'Problem'}] ${c.title}: ${c.description || ''} (Status: ${c.status})`).join('; ')}`
+        ? '\n- Relevant Farm History & Problem Cases: ' + pastCases.slice(0, 3).map((c) => `[${c.category || 'Problem'}] ${c.title}: ${c.description || ''}`).join('; ')
         : pastMemories.length > 0
-            ? `\n- Recent Farmer Questions: ${pastMemories.slice(0, 3).map((m) => `"${m.user_query}"`).join('; ')}`
+            ? '\n- Recent Farm Conversations: ' + pastMemories.slice(0, 3).map((m) => `"${m.user_query || m.message || ''}"`).join('; ')
             : '';
-    if (ai && apiKey) {
-        try {
-            console.log(`🤖 Invoking Google Gemini 2.5 Flash for Farm Advisor in ${language}...`);
-            const systemInstruction = `You are KRISHVYA AI, a personalized personal agricultural scientist dedicated to Indian smallholder farmers.
-Your tone is empathetic, respectful, encouraging, practical, and clear.
-Use simple language without academic jargon.
-Respond strictly in the requested language: ${language.toUpperCase()} (if Hindi, use natural Devanagari script; if Marathi, use Marathi; if English, use clear Indian English).
-Always ground your answers in the farmer's actual field data:
-- Farm Location: ${farmContext?.location?.address || 'Nagpur, Maharashtra'}
-- Farm Size: ${farmContext?.size || 2.5} acres (${farmContext?.irrigationType || 'Drip'} Irrigation)
-- Current Crop: ${farmContext?.crop?.name || 'Soybean'} (Variety: ${farmContext?.crop?.variety || 'JS-335'}, Stage: ${farmContext?.crop?.stage || 'Flowering'})
-- Soil Condition: Score ${farmContext?.soil?.healthScore || 78}/100, Type: ${farmContext?.soil?.soilType || 'Black Cotton'}, Moisture: ${farmContext?.soil?.moisturePercentage || 42}%
-- Weather Forecast: ${farmContext?.weather?.temperature || 28}°C, ${farmContext?.weather?.condition || 'Partly Cloudy'}, Rain Probability: ${farmContext?.weather?.rainProbability || 60}%, Advice: "${farmContext?.weather?.advice || 'Rain expected tomorrow'}"${memoryContext}
+    const knowledgeContext = knowledgeSnippets.length > 0
+        ? '\n\nVerified Agricultural Knowledge Base (ICAR / data.gov.in / FAOSTAT / SoilGrids):\n' + knowledgeSnippets.map((k, i) => `[${i + 1}] ${k}`).join('\n')
+        : '';
+    try {
+        console.log(`🤖 [Gemini Advisor] Invoking Google Gemini 2.5 Flash for ${farmerName} in ${language}...`);
+        const systemInstruction = `You are KRISHVYA AI, an expert agricultural scientist and personal farm advisor.
+Your role is to give natural, conversational, direct, and practical advice like a modern AI assistant (ChatGPT/Gemini style), specialized for agriculture.
+Respond strictly in the farmer's selected language: ${language.toUpperCase()} (e.g. Hindi, Marathi, English, Tamil, Telugu, Kannada, Bhojpuri).
 
-Guidelines:
-1. Provide a direct recommendation first (Yes/No, exact dose, exact action).
-2. Follow with maximum 3 clear numbered steps.
-3. Mention how this connects to their soil moisture, weather, or crop stage.
-4. If confidence in the diagnosis or dosage is under 80%, state: "We recommend confirming with our KRISHVYA Agronomist team."`;
-            const contents = [
-                ...history.slice(-6).map((h) => ({
-                    role: h.role === 'user' ? 'user' : 'model',
-                    parts: [{ text: h.content }],
-                })),
-                {
-                    role: 'user',
-                    parts: [{ text: message }],
-                },
-            ];
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents,
-                config: {
-                    systemInstruction,
-                    temperature: 0.4,
-                },
-            });
-            if (response.text) {
-                return {
-                    reply: response.text,
-                    aiEngine: 'gemini-2.5-flash',
-                    confidence: 94,
-                    requiresExpertReview: false,
-                };
+Farmer & Farm Context (Source of Truth):
+- Farmer Name: ${farmerName}
+- Farm Name: ${farmName}
+- Location: ${locationStr}
+- Farm Area: ${sizeStr}
+- Crop: ${cropStr}
+- Soil Information: ${soilStr}
+- Irrigation: ${irrigationStr}
+- Live Weather: ${weatherStr}${memoryContext}${knowledgeContext}
+
+Rules:
+1. Ground your answers directly in the farmer's actual crop, location, weather, and soil data above.
+2. If any farm details are listed as "Farm information is not available yet.", do NOT invent fake data. State: "Farm information is not available yet." or guide the farmer on what details are needed.
+3. Be conversational, direct, empathetic, and farmer-friendly. Do NOT force responses into rigid cards, percentages, or tables.
+4. When asked about watering/irrigation, fertilizer, yellow leaves, or crop health:
+   - Provide the direct recommendation first (e.g., whether to water today, the dosage, or remedy).
+   - Follow with a concise, clear explanation ("Why") and 2-3 practical next steps.
+   - If more information is needed, ask only ONE relevant follow-up question.
+5. If the question is outside agriculture or farming, politely redirect to agricultural topics.`;
+        const contents = [
+            ...history.slice(-6).map((h) => ({
+                role: h.role === 'user' ? 'user' : 'model',
+                parts: [{ text: h.content }],
+            })),
+            {
+                role: 'user',
+                parts: [{ text: message }],
+            },
+        ];
+        // Candidate models: Live supported models in Google GenAI API
+        const candidateModels = [
+            'gemini-flash-lite-latest',
+            'gemini-3.6-flash',
+            'gemini-3.5-flash-lite',
+            'gemini-3.1-flash-lite',
+            'gemini-3.8-flash',
+            'gemini-flash-latest',
+        ];
+        let lastError = null;
+        for (const model of candidateModels) {
+            try {
+                console.log(`🤖 [Gemini Advisor] Invoking model ${model} for ${farmerName}...`);
+                const response = await aiClient.models.generateContent({
+                    model,
+                    contents,
+                    config: {
+                        systemInstruction,
+                        temperature: 0.3,
+                    },
+                });
+                if (response.text) {
+                    console.log(`✅ [Gemini Advisor] Generated answer with model: ${model}`);
+                    return {
+                        reply: response.text.trim(),
+                        aiEngine: model,
+                        confidence: 95,
+                        requiresExpertReview: false,
+                    };
+                }
+            }
+            catch (err) {
+                lastError = err;
+                const msg = err?.message || String(err);
+                console.error(`⚠️ [Gemini Model ${model} Failed]:`, msg);
+                // If 503 high demand spike, brief backoff
+                if (msg.includes('503') || msg.includes('high demand')) {
+                    await new Promise((r) => setTimeout(r, 500));
+                }
+                console.log(`ℹ️ Trying next candidate model...`);
+                continue;
             }
         }
-        catch (err) {
-            console.warn('⚠️ Gemini chat call error, using agronomic fallback:', err?.message);
-        }
-    }
-    // Resilient localized responses for common Indian agricultural queries
-    const lower = message.toLowerCase();
-    const lang = language.toLowerCase();
-    const crop = farmContext?.crop?.name || 'Soybean';
-    const moisture = farmContext?.soil?.moisturePercentage || 42;
-    const rainProb = farmContext?.weather?.rainProbability || 60;
-    // Irrigation & Weather query
-    if (lower.includes('water') || lower.includes('irrigation') || lower.includes('paani') || lower.includes('pani') || lower.includes('sinchan')) {
-        if (lang === 'hindi') {
+        const errorMsg = lastError?.message || String(lastError || 'No response generated.');
+        console.error('⚠️ [AI Advisor Gemini Error] Real error details:', errorMsg);
+        // Fallback: If Gemini API is temporarily busy or unreachable, synthesize verified ICAR Agronomy guidance
+        if (knowledgeSnippets && knowledgeSnippets.length > 0) {
+            console.log('🌾 [Agricultural Fallback] Synthesizing ICAR Agronomy response from verified datasets...');
+            const fallbackReply = `Here is expert agricultural guidance based on ICAR agronomy recommendations:\n\n${knowledgeSnippets.join('\n\n')}\n\n*Action Steps:*\n1. Check your field soil moisture and leaf signs.\n2. Apply recommended nutrients or bio-controls in cool morning/evening hours.\n3. Keep monitoring crop response over the next 48-72 hours.`;
             return {
-                reply: `नमस्ते किसान भाई! 🌾\n\nआपके खेत का लाइव डेटा:\n• **फसल**: ${crop} (फूल आने की अवस्था - Flowering)\n• **मिट्टी की नमी**: ${moisture}% (काली कपासिया मिट्टी)\n• **मौसम पूर्वानुमान**: 24 घंटे में ${rainProb}% बारिश की संभावना।\n\n**कार्ययोजना**:\n1. **आज सिंचाई टाल दें**: प्राकृतिक वर्षा से जड़ क्षेत्र को पर्याप्त नमी मिलेगी। पंपिंग टालने से बिजली और भूजल दोनों बचेंगे।\n2. **जल निकासी सुनिश्चित करें**: खेत की नालियों को साफ रखें ताकि अत्यधिक पानी न भरे।\n3. **2 दिन बाद निगरानी**: बारिश के बाद नमी से फंगस का खतरा बढ़ता है, निचली पत्तियों की जांच करें।\n\nआपकी फसल की स्थिति स्वस्थ है! 🚜`,
-                aiEngine: 'icar-kvk-expert-engine',
-                confidence: 95,
-                requiresExpertReview: false,
-            };
-        }
-        if (lang === 'marathi') {
-            return {
-                reply: `नमस्कार शेतकरी बंधू! 🌾\n\nआपल्या शेताची लाइव्ह स्थिती:\n• **पीक**: ${crop} (फुलोरा अवस्था)\n• **जमिनीतील ओलावा**: ${moisture}%\n• **हवामान अंदाज**: आगामी २४ तासांत ${rainProb}% पावसाची शक्यता.\n\n**महत्त्वाचा सल्ला**:\n1. **आज पाणी देणे पुढे ढकला**: येणाऱ्या पावसामुळे पिकाला नैसर्गिक पाणी मिळेल. वीज आणि पाण्याचा अपव्यय टाळा.\n2. **पाण्याचा निचरा करा**: शेतात पाणी साचणार नाही याची खबरदारी घ्या.\n\nआपले पीक उत्तम स्थितीत आहे! 🚜`,
-                aiEngine: 'icar-kvk-expert-engine',
-                confidence: 95,
+                reply: fallbackReply,
+                aiEngine: 'icar-knowledge-engine',
+                confidence: 88,
                 requiresExpertReview: false,
             };
         }
         return {
-            reply: `Namaste Farmer Partner! 🌾\n\nBased on your live farm data in ${farmContext?.location?.address || 'Nagpur'}:\n• **Crop**: ${crop} (${farmContext?.crop?.stage || 'Flowering Stage'})\n• **Soil Moisture**: ${moisture}% (Adequate)\n• **Weather Forecast**: ${rainProb}% rain probability tomorrow.\n\n**Actionable Advice**:\n1. **Delay Irrigation Today**: Rain is expected within 24 hours. Pumping now risks root asphyxiation.\n2. **Check Drainage**: Keep furrow drains clear so heavy showers drain freely.\n3. **Scout for Fungal Onset**: Humid conditions after showers encourage Cercospora leaf spot.\n\nYour crop is progressing well! 🚜`,
-            aiEngine: 'icar-kvk-expert-engine',
-            confidence: 95,
+            reply: `Gemini service error: ${errorMsg}`,
+            aiEngine: 'gemini-flash-lite-latest',
+            confidence: 0,
             requiresExpertReview: false,
+            errorType: 'GEMINI_ERROR',
+            rawError: errorMsg,
         };
     }
-    // Fertilizer / NPK query
-    if (lower.includes('fertilizer') || lower.includes('urea') || lower.includes('khad') || lower.includes('khat') || lower.includes('npk')) {
-        if (lang === 'hindi') {
-            return {
-                reply: `${crop} की फूल अवस्था के लिए पोषण प्रबंधन:\n\n1. **अतिरिक्त यूरिया न डालें**: इस समय ज्यादा नाइट्रोजन देने से सिर्फ पत्तियां बढ़ेंगी और फूल गिर जाएंगे।\n2. **घुलनशील खाद (00:52:34)**: मोनो पोटेशियम फॉस्फेट @ 10 ग्राम प्रति लीटर पानी में मिलाकर छिड़काव करें।\n3. **बोरॉन 20%**: परागकण उर्वरता और फूल टिकने के लिए बोरॉन @ 1 ग्राम प्रति लीटर पानी मिलाकर स्प्रे करें।\n\nछिड़काव शाम 4 बजे के बाद करें जब तेज धूप न हो। 🌾`,
-                aiEngine: 'icar-kvk-expert-engine',
-                confidence: 92,
-                requiresExpertReview: false,
-            };
-        }
+    catch (err) {
+        const errorMsg = err?.message || String(err);
+        console.error('⚠️ [AI Advisor Gemini General Error]:', errorMsg);
         return {
-            reply: `Nutrient guidance for ${crop} at ${farmContext?.crop?.stage || 'Flowering Stage'}:\n\n1. **Avoid Excess Nitrogen**: Urea at this stage promotes excessive leafy foliage and reduces pod setting.\n2. **Foliar Spray 00:52:34**: 10g/L water (1.5 kg/acre) to fortify flower retention and root pods.\n3. **Boron 20%**: Add 1g/L water to prevent flower abortion.\n\nSpray during calm evening hours for maximum foliar absorption! 🌾`,
-            aiEngine: 'icar-kvk-expert-engine',
-            confidence: 92,
+            reply: `Gemini service error: ${errorMsg}`,
+            aiEngine: 'gemini-flash-lite-latest',
+            confidence: 0,
             requiresExpertReview: false,
+            errorType: 'GEMINI_ERROR',
+            rawError: errorMsg,
         };
     }
-    // Intercropping / Crop rotation query
-    if (lower.includes('intercrop') || lower.includes('companion') || lower.includes('rotate') || lower.includes('next crop') || lower.includes('fasal')) {
-        return {
-            reply: `Smart Crop Planning for your farm:\n\n1. **Intercropping with Pigeonpea (Arhar/Tur)**: Plant 4 rows of Soybean + 2 rows of Pigeonpea. This provides natural nitrogen fixation and guards against price fluctuations.\n2. **Rabi Season Follow-up**: After harvesting Soybean in October, sow Chickpea (Gram/Chana variety Vijay or Digvijay) or Wheat HD-2967.\n3. **Soil Benefit**: Legume rotation boosts soil organic carbon by up to 0.15% per season. 🌾`,
-            aiEngine: 'icar-kvk-expert-engine',
-            confidence: 90,
-            requiresExpertReview: false,
-        };
-    }
-    // General Agronomic Advice
-    return {
-        reply: `Namaste! Based on your farm in ${farmContext?.location?.address || 'Nagpur'} (${farmContext?.size || 2.5} acres, ${crop} at ${farmContext?.crop?.stage || 'Flowering'}, Soil Health ${farmContext?.soil?.healthScore || 78}/100):\n\n• **Current Field Priority**: Maintain furrow drainage and scout lower leaves for leaf spots.\n• **Weather Alert**: ${rainProb}% rain chance. Delay chemical sprays.\n• **Soil Condition**: Adequate moisture (${moisture}%), neutral pH (6.7).\n\nAsk me anything about pest scouting, spray doses, or organic recipes (Jeevamrutha / Dashparni)! 🌾`,
-        aiEngine: 'icar-kvk-expert-engine',
-        confidence: 91,
-        requiresExpertReview: false,
-    };
 }
