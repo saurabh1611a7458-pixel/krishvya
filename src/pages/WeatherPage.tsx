@@ -671,7 +671,7 @@ export const WeatherPage: React.FC = () => {
   const tempRangeSpan = Math.max(1, weekMaxTemp - weekMinTemp);
 
   return (
-    <div className="min-h-screen bg-[#FBFBF7] flex">
+    <div className="min-h-screen bg-[#FAF9F6] flex">
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0 pb-20 lg:pb-12">
@@ -986,60 +986,14 @@ export const WeatherPage: React.FC = () => {
           {/* ========================================================================= */}
           {!isLoading && weatherData && (
             <div className="space-y-6">
-              {/* Active Weather Alerts Section */}
-              {activeAlerts.length > 0 ? (
-                <div className="space-y-3">
-                  {activeAlerts.map((alert) => (
-                    <div
-                      key={alert.id}
-                      className={`p-4 sm:p-5 rounded-2xl border shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-all ${alert.colorBg} ${alert.colorBorder} ${alert.colorText}`}
-                    >
-                      <div className="flex items-start gap-3.5">
-                        <div className="p-2 rounded-xl bg-white/90 shadow-2xs shrink-0 mt-0.5">
-                          {renderAlertIcon(alert.type)}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-extrabold text-sm tracking-tight">{alert.title}</h4>
-                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${alert.colorBadge}`}>
-                              {alert.severity} Severity
-                            </span>
-                          </div>
-                          <p className="text-xs mt-1 opacity-90 leading-relaxed">{alert.description}</p>
-                          <div className="text-xs font-bold mt-2 flex items-center gap-1.5 text-gray-900 bg-white/60 px-2.5 py-1 rounded-lg w-fit border border-black/5">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-krishi-700 shrink-0" />
-                            <span>Action: {alert.action}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="px-4 py-3 bg-emerald-50/60 border border-emerald-200/70 rounded-2xl text-xs text-emerald-950 flex items-center justify-between shadow-2xs">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-700">
-                      <CheckCircle2 className="w-4 h-4" />
-                    </div>
-                    <div className="font-medium">
-                      <strong className="font-bold text-emerald-900">Operations Nominal:</strong> No active severe weather hazards. Conditions are favorable for standard farm tasks.
-                    </div>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full shrink-0 hidden sm:inline">
-                    Live Telemetry Nominal
-                  </span>
-                </div>
-              )}
-
               {/* ========================================================================= */}
-              {/* 3. HERO CURRENT WEATHER CARD                                              */}
+              {/* 1. CURRENT WEATHER HERO & 2. RAIN PROBABILITY / PRIMARY METRICS           */}
               {/* ========================================================================= */}
               <div className="bg-white rounded-3xl border border-earth-200/90 shadow-soft p-6 sm:p-8 relative overflow-hidden">
-                {/* Subtle soft backdrop radial glow */}
                 <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-krishi-500/10 via-amber-200/10 to-transparent rounded-full blur-3xl pointer-events-none -mr-28 -mt-28" />
 
                 <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-                  {/* Left Column: Location, Big Temp, Condition, Advice */}
+                  {/* Left Column: Location, Big Temp, Condition, Feels Like */}
                   <div className="flex-1 min-w-0 space-y-4">
                     {/* Location Badge & Farm Meta */}
                     <div className="flex items-center gap-2 flex-wrap">
@@ -1091,80 +1045,105 @@ export const WeatherPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Right Column: Key Weather Metrics Grid (Compact 6-Card Micro-Grid) */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 w-full lg:w-auto lg:min-w-[380px]">
+                  {/* Right Column: 2. Core Weather Metrics (Rain Chance, Humidity, Wind) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto lg:min-w-[360px]">
+                    {/* Rain Probability Card */}
+                    <div className="p-4 rounded-2xl bg-blue-50/80 border border-blue-200/80 shadow-xs flex flex-col justify-between">
+                      <div className="flex items-center justify-between text-blue-700 text-xs font-bold uppercase tracking-wider mb-2">
+                        <span className="flex items-center gap-1.5">
+                          <CloudRain className="w-4 h-4 text-blue-600" />
+                          Rain Chance
+                        </span>
+                        <span className="text-[10px] bg-blue-100 px-1.5 py-0.5 rounded-full font-bold">24h</span>
+                      </div>
+                      <p className="text-2xl sm:text-3xl font-black text-blue-950">{weatherData.rainProbability24h}%</p>
+                      <p className="text-[11px] text-blue-700 font-medium mt-1">
+                        {weatherData.forecast7Days?.[1]?.rainProbability !== undefined
+                          ? `Tomorrow: ${weatherData.forecast7Days[1].rainProbability}%`
+                          : 'Next 24h outlook'}
+                      </p>
+                    </div>
+
                     {/* Humidity */}
-                    <div className="p-3 rounded-2xl bg-earth-50/70 hover:bg-earth-100/60 border border-earth-200/80 transition-colors">
-                      <div className="flex items-center gap-1.5 text-gray-500 text-[10px] font-extrabold uppercase tracking-wider mb-1">
-                        <Droplets className="w-3.5 h-3.5 text-sky-600" />
+                    <div className="p-4 rounded-2xl bg-earth-50/80 border border-earth-200/80 shadow-xs flex flex-col justify-between">
+                      <div className="flex items-center gap-1.5 text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">
+                        <Droplets className="w-4 h-4 text-sky-600" />
                         <span>Humidity</span>
                       </div>
-                      <p className="text-base sm:text-lg font-black text-gray-900">{weatherData.humidity}%</p>
-                      <span className="text-[10px] text-gray-400 font-medium">Relative</span>
+                      <p className="text-2xl sm:text-3xl font-black text-gray-900">{weatherData.humidity}%</p>
+                      <p className="text-[11px] text-gray-500 font-medium mt-1">Relative humidity</p>
                     </div>
 
                     {/* Wind Speed */}
-                    <div className="p-3 rounded-2xl bg-earth-50/70 hover:bg-earth-100/60 border border-earth-200/80 transition-colors">
-                      <div className="flex items-center gap-1.5 text-gray-500 text-[10px] font-extrabold uppercase tracking-wider mb-1">
-                        <Wind className="w-3.5 h-3.5 text-teal-600" />
+                    <div className="p-4 rounded-2xl bg-earth-50/80 border border-earth-200/80 shadow-xs flex flex-col justify-between">
+                      <div className="flex items-center gap-1.5 text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">
+                        <Wind className="w-4 h-4 text-teal-600" />
                         <span>Wind</span>
                       </div>
-                      <p className="text-base sm:text-lg font-black text-gray-900">
+                      <p className="text-2xl sm:text-3xl font-black text-gray-900">
                         {weatherData.windSpeedKmh} <span className="text-xs font-semibold text-gray-500">km/h</span>
                       </p>
-                      <span className="text-[10px] text-gray-400 font-medium">Sustained</span>
+                      <p className="text-[11px] text-gray-500 font-medium mt-1">Sustained breeze</p>
                     </div>
-
-                    {/* Rain Probability */}
-                    <div className="p-3 rounded-2xl bg-earth-50/70 hover:bg-earth-100/60 border border-earth-200/80 transition-colors">
-                      <div className="flex items-center gap-1.5 text-gray-500 text-[10px] font-extrabold uppercase tracking-wider mb-1">
-                        <CloudRain className="w-3.5 h-3.5 text-blue-600" />
-                        <span>Rain Chance</span>
-                      </div>
-                      <p className="text-base sm:text-lg font-black text-gray-900">{weatherData.rainProbability24h}%</p>
-                      <span className="text-[10px] text-gray-400 font-medium">Next 24h</span>
-                    </div>
-
-                    {/* Visibility */}
-                    {weatherData.visibilityKm !== undefined && (
-                      <div className="p-3 rounded-2xl bg-earth-50/70 hover:bg-earth-100/60 border border-earth-200/80 transition-colors">
-                        <div className="flex items-center gap-1.5 text-gray-500 text-[10px] font-extrabold uppercase tracking-wider mb-1">
-                          <Eye className="w-3.5 h-3.5 text-indigo-600" />
-                          <span>Visibility</span>
-                        </div>
-                        <p className="text-base sm:text-lg font-black text-gray-900">
-                          {weatherData.visibilityKm} <span className="text-xs font-semibold text-gray-500">km</span>
-                        </p>
-                        <span className="text-[10px] text-gray-400 font-medium">Surface clear</span>
-                      </div>
-                    )}
-
-                    {/* Sunrise */}
-                    {weatherData.sunrise && (
-                      <div className="p-3 rounded-2xl bg-earth-50/70 hover:bg-earth-100/60 border border-earth-200/80 transition-colors">
-                        <div className="flex items-center gap-1.5 text-gray-500 text-[10px] font-extrabold uppercase tracking-wider mb-1">
-                          <Sunrise className="w-3.5 h-3.5 text-amber-500" />
-                          <span>Sunrise</span>
-                        </div>
-                        <p className="text-sm sm:text-base font-black text-gray-900">{weatherData.sunrise}</p>
-                        <span className="text-[10px] text-gray-400 font-medium">Dawn light</span>
-                      </div>
-                    )}
-
-                    {/* Sunset */}
-                    {weatherData.sunset && (
-                      <div className="p-3 rounded-2xl bg-earth-50/70 hover:bg-earth-100/60 border border-earth-200/80 transition-colors">
-                        <div className="flex items-center gap-1.5 text-gray-500 text-[10px] font-extrabold uppercase tracking-wider mb-1">
-                          <Sunset className="w-3.5 h-3.5 text-orange-500" />
-                          <span>Sunset</span>
-                        </div>
-                        <p className="text-sm sm:text-base font-black text-gray-900">{weatherData.sunset}</p>
-                        <span className="text-[10px] text-gray-400 font-medium">Dusk hour</span>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
+
+              {/* ========================================================================= */}
+              {/* 3. FARM-RELEVANT INSIGHT / ACTION                                         */}
+              {/* ========================================================================= */}
+              <Card className="p-5 sm:p-6 bg-white border border-earth-200 shadow-soft">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 rounded-md bg-krishi-50 text-krishi-700">
+                      <Sprout className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-gray-900 text-sm sm:text-base tracking-tight">
+                        Farm Weather Insights & Actions
+                      </h3>
+                      <p className="text-[11px] text-gray-500 font-medium">
+                        What this weather means for {farm.name || 'your farm'} and actions to take
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-bold text-krishi-700 bg-krishi-50 border border-krishi-200 px-2.5 py-0.5 rounded-full">
+                    Grounded Advisory
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {farmInsights.map((insight, idx) => (
+                    <div
+                      key={idx}
+                      className="p-4 rounded-2xl bg-earth-50/60 border border-earth-200/80 hover:border-krishi-300 transition-all flex flex-col justify-between space-y-2.5"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 font-bold text-sm text-gray-900">
+                          <div className="p-1.5 rounded-xl bg-white border border-earth-200 shadow-2xs">
+                            {renderInsightIcon(insight.iconType)}
+                          </div>
+                          <span className="tracking-tight">{insight.title}</span>
+                        </div>
+                        <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${insight.badgeColor}`}>
+                          {insight.badge}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-gray-600 leading-relaxed font-normal">
+                        {insight.description}
+                      </p>
+
+                      {insight.actionableStep && (
+                        <div className="flex items-start gap-1.5 text-xs text-krishi-900 font-semibold bg-white p-2.5 rounded-xl border border-earth-200/70 shadow-2xs">
+                          <ArrowUpRight className="w-3.5 h-3.5 text-krishi-700 shrink-0 mt-0.5" />
+                          <span>Action: {insight.actionableStep}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Card>
 
               {/* ========================================================================= */}
               {/* 4. HOURLY FORECAST (Next 24 Hours Strip)                                   */}
@@ -1187,7 +1166,7 @@ export const WeatherPage: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2.5 overflow-x-auto pb-2 pt-1 scrollbar-thin scrollbar-thumb-earth-200">
+                <div className="flex items-center gap-2.5 overflow-x-auto pb-2 pt-1 no-scrollbar sm:scrollbar-thin sm:scrollbar-thumb-earth-200">
                   {weatherData.hourlyRainForecast.slice(0, 20).map((point, idx) => {
                     const isNow = idx === 0;
                     return (
@@ -1226,145 +1205,195 @@ export const WeatherPage: React.FC = () => {
               </Card>
 
               {/* ========================================================================= */}
-              {/* TWO COLUMN GRID: 7-Day Forecast & Farm Weather Insights                   */}
+              {/* 5. 7-DAY FORECAST                                                          */}
               {/* ========================================================================= */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* 5. 7-DAY FORECAST (5 Cols Desktop) */}
-                <div className="lg:col-span-5 space-y-4">
-                  <Card className="p-5 sm:p-6 bg-white border border-earth-200 shadow-soft">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <div className="p-1 rounded-md bg-krishi-50 text-krishi-700">
-                          <Calendar className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <h3 className="font-extrabold text-gray-900 text-sm sm:text-base tracking-tight">
-                            7-Day Forecast
-                          </h3>
-                          <p className="text-[11px] text-gray-500 font-medium">Daily outlook & range</p>
-                        </div>
-                      </div>
-                      <span className="text-[11px] font-mono font-bold text-gray-500 bg-earth-100 px-2 py-0.5 rounded-full">
-                        7 Days
-                      </span>
+              <Card className="p-5 sm:p-6 bg-white border border-earth-200 shadow-soft">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 rounded-md bg-krishi-50 text-krishi-700">
+                      <Calendar className="w-4 h-4" />
                     </div>
-
-                    <div className="divide-y divide-earth-100">
-                      {weatherData.forecast7Days.map((dayItem, idx) => {
-                        const isToday = idx === 0;
-                        // Calculate percentage offset for custom min/max bar
-                        const minPercent = Math.max(0, Math.min(100, ((dayItem.tempMin - weekMinTemp) / tempRangeSpan) * 100));
-                        const maxPercent = Math.max(0, Math.min(100, ((dayItem.tempMax - weekMinTemp) / tempRangeSpan) * 100));
-                        const barWidth = Math.max(12, maxPercent - minPercent);
-
-                        return (
-                          <div
-                            key={idx}
-                            className={`py-3 flex items-center justify-between gap-3 text-xs sm:text-sm px-2 rounded-xl transition-colors ${
-                              isToday ? 'bg-krishi-50/50 font-medium' : 'hover:bg-earth-50/50'
-                            }`}
-                          >
-                            {/* Day Name */}
-                            <div className="w-20 sm:w-24 shrink-0 flex items-center gap-1.5">
-                              <span className={`truncate font-bold ${isToday ? 'text-krishi-900' : 'text-gray-900'}`}>
-                                {dayItem.day}
-                              </span>
-                              {isToday && (
-                                <span className="text-[9px] font-black uppercase tracking-wider bg-krishi-100 text-krishi-800 px-1 py-0.2 rounded shrink-0">
-                                  Today
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Icon & Condition */}
-                            <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                              {getSmallWeatherIcon(dayItem.icon, dayItem.condition)}
-                              <span className="text-xs text-gray-600 truncate hidden md:inline">
-                                {dayItem.condition}
-                              </span>
-                            </div>
-
-                            {/* Rain Chance */}
-                            <div className="flex items-center gap-1 text-[11px] font-bold text-sky-700 w-12 justify-end shrink-0">
-                              <Droplets className="w-3 h-3 text-sky-500 shrink-0" />
-                              <span>{dayItem.rainProbability}%</span>
-                            </div>
-
-                            {/* Min / Max Temp & Range Bar */}
-                            <div className="flex items-center gap-2 w-28 sm:w-32 justify-end shrink-0">
-                              <span className="text-xs text-gray-400 font-semibold w-7 text-right">
-                                {dayItem.tempMin}°
-                              </span>
-                              {/* Horizontal Visual Range Indicator */}
-                              <div className="flex-1 h-1.5 bg-earth-200 rounded-full relative overflow-hidden hidden sm:block">
-                                <div
-                                  className="absolute top-0 bottom-0 bg-gradient-to-r from-amber-400 to-rose-500 rounded-full"
-                                  style={{ left: `${minPercent}%`, width: `${barWidth}%` }}
-                                />
-                              </div>
-                              <span className="text-xs font-black text-gray-900 w-7 text-right">
-                                {dayItem.tempMax}°
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
+                    <div>
+                      <h3 className="font-extrabold text-gray-900 text-sm sm:text-base tracking-tight">
+                        7-Day Forecast Outlook
+                      </h3>
+                      <p className="text-[11px] text-gray-500 font-medium">Daily temperature outlook and precipitation chances</p>
                     </div>
-                  </Card>
+                  </div>
+                  <span className="text-[11px] font-mono font-bold text-gray-500 bg-earth-100 px-2.5 py-0.5 rounded-full">
+                    7 Days
+                  </span>
                 </div>
 
-                {/* 6. AGRICULTURE WEATHER INSIGHTS (7 Cols Desktop) */}
-                <div className="lg:col-span-7 space-y-4">
-                  <Card className="p-5 sm:p-6 bg-white border border-earth-200 shadow-soft">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <div className="p-1 rounded-md bg-krishi-50 text-krishi-700">
-                          <Sprout className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <h3 className="font-extrabold text-gray-900 text-sm sm:text-base tracking-tight">
-                            Farm Weather Insights
-                          </h3>
-                          <p className="text-[11px] text-gray-500 font-medium">Grounded in soil moisture and crop physiology</p>
-                        </div>
-                      </div>
-                      <span className="text-[11px] font-bold text-krishi-700 bg-krishi-50 border border-krishi-200 px-2 py-0.5 rounded-full">
-                        Precision Advisory
-                      </span>
-                    </div>
+                <div className="divide-y divide-earth-100">
+                  {weatherData.forecast7Days.map((dayItem, idx) => {
+                    const isToday = idx === 0;
+                    const minPercent = Math.max(0, Math.min(100, ((dayItem.tempMin - weekMinTemp) / tempRangeSpan) * 100));
+                    const maxPercent = Math.max(0, Math.min(100, ((dayItem.tempMax - weekMinTemp) / tempRangeSpan) * 100));
+                    const barWidth = Math.max(12, maxPercent - minPercent);
 
-                    <div className="space-y-3">
-                      {farmInsights.map((insight, idx) => (
-                        <div
-                          key={idx}
-                          className="p-4 rounded-2xl bg-earth-50/60 border border-earth-200/80 hover:border-krishi-300 transition-all space-y-2.5"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2.5 font-bold text-sm text-gray-900">
-                              <div className="p-1.5 rounded-xl bg-white border border-earth-200 shadow-2xs">
-                                {renderInsightIcon(insight.iconType)}
-                              </div>
-                              <span className="tracking-tight">{insight.title}</span>
-                            </div>
-                            <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${insight.badgeColor}`}>
-                              {insight.badge}
+                    return (
+                      <div
+                        key={idx}
+                        className={`py-3 flex items-center justify-between gap-3 text-xs sm:text-sm px-2 rounded-xl transition-colors ${
+                          isToday ? 'bg-krishi-50/50 font-medium' : 'hover:bg-earth-50/50'
+                        }`}
+                      >
+                        <div className="w-20 sm:w-28 shrink-0 flex items-center gap-1.5">
+                          <span className={`truncate font-bold ${isToday ? 'text-krishi-900' : 'text-gray-900'}`}>
+                            {dayItem.day}
+                          </span>
+                          {isToday && (
+                            <span className="text-[9px] font-black uppercase tracking-wider bg-krishi-100 text-krishi-800 px-1 py-0.2 rounded shrink-0">
+                              Today
                             </span>
-                          </div>
-
-                          <p className="text-xs text-gray-600 leading-relaxed font-normal">
-                            {insight.description}
-                          </p>
-
-                          {insight.actionableStep && (
-                            <div className="flex items-start gap-1.5 text-xs text-krishi-900 font-semibold bg-white p-2.5 rounded-xl border border-earth-200/70 shadow-2xs">
-                              <ArrowUpRight className="w-3.5 h-3.5 text-krishi-700 shrink-0 mt-0.5" />
-                              <span>{insight.actionableStep}</span>
-                            </div>
                           )}
                         </div>
-                      ))}
+
+                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                          {getSmallWeatherIcon(dayItem.icon, dayItem.condition)}
+                          <span className="text-xs text-gray-600 truncate hidden md:inline">
+                            {dayItem.condition}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1 text-[11px] font-bold text-sky-700 w-12 justify-end shrink-0">
+                          <Droplets className="w-3 h-3 text-sky-500 shrink-0" />
+                          <span>{dayItem.rainProbability}%</span>
+                        </div>
+
+                        <div className="flex items-center gap-2 w-28 sm:w-36 justify-end shrink-0">
+                          <span className="text-xs text-gray-400 font-semibold w-7 text-right">
+                            {dayItem.tempMin}°
+                          </span>
+                          <div className="flex-1 h-1.5 bg-earth-200 rounded-full relative overflow-hidden hidden sm:block">
+                            <div
+                              className="absolute top-0 bottom-0 bg-gradient-to-r from-amber-400 to-rose-500 rounded-full"
+                              style={{ left: `${minPercent}%`, width: `${barWidth}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-black text-gray-900 w-7 text-right">
+                            {dayItem.tempMax}°
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+
+              {/* ========================================================================= */}
+              {/* 6. WEATHER ALERTS                                                          */}
+              {/* ========================================================================= */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-extrabold text-gray-900 text-sm sm:text-base tracking-tight flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-amber-600" />
+                    Weather Hazards & Alerts
+                  </h3>
+                  <span className="text-[11px] text-gray-500 font-medium">Real-time radar warning state</span>
+                </div>
+
+                {activeAlerts.length > 0 ? (
+                  <div className="space-y-3">
+                    {activeAlerts.map((alert) => (
+                      <div
+                        key={alert.id}
+                        className={`p-4 sm:p-5 rounded-2xl border shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-all ${alert.colorBg} ${alert.colorBorder} ${alert.colorText}`}
+                      >
+                        <div className="flex items-start gap-3.5">
+                          <div className="p-2 rounded-xl bg-white/90 shadow-2xs shrink-0 mt-0.5">
+                            {renderAlertIcon(alert.type)}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-extrabold text-sm tracking-tight">{alert.title}</h4>
+                              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${alert.colorBadge}`}>
+                                {alert.severity} Severity
+                              </span>
+                            </div>
+                            <p className="text-xs mt-1 opacity-90 leading-relaxed">{alert.description}</p>
+                            <div className="text-xs font-bold mt-2 flex items-center gap-1.5 text-gray-900 bg-white/60 px-2.5 py-1 rounded-lg w-fit border border-black/5">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-krishi-700 shrink-0" />
+                              <span>Action: {alert.action}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-4 py-3 bg-emerald-50/60 border border-emerald-200/70 rounded-2xl text-xs text-emerald-950 flex items-center justify-between shadow-2xs">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-700">
+                        <CheckCircle2 className="w-4 h-4" />
+                      </div>
+                      <div className="font-medium">
+                        <strong className="font-bold text-emerald-900">Operations Nominal:</strong> No active severe weather hazards. Conditions are favorable for standard farm tasks.
+                      </div>
                     </div>
-                  </Card>
+                    <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full shrink-0 hidden sm:inline">
+                      Telemetry Nominal
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* ========================================================================= */}
+              {/* 7. SECONDARY METRICS (Visibility, Sunrise, Sunset, Calibrated Radar)       */}
+              {/* ========================================================================= */}
+              <div className="p-4 sm:p-5 bg-white rounded-2xl border border-earth-200/90 shadow-2xs">
+                <h4 className="text-xs font-extrabold uppercase tracking-wider text-gray-500 mb-3">
+                  Secondary Environmental Telemetry
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {/* Visibility */}
+                  <div className="p-3 rounded-xl bg-earth-50 border border-earth-100">
+                    <div className="flex items-center gap-1.5 text-gray-500 text-[10px] font-bold uppercase mb-1">
+                      <Eye className="w-3 h-3 text-indigo-600" />
+                      <span>Visibility</span>
+                    </div>
+                    <p className="text-sm sm:text-base font-black text-gray-900">
+                      {weatherData.visibilityKm !== undefined ? `${weatherData.visibilityKm} km` : '10 km'}
+                    </p>
+                    <span className="text-[10px] text-gray-400">Atmospheric clarity</span>
+                  </div>
+
+                  {/* Sunrise */}
+                  <div className="p-3 rounded-xl bg-earth-50 border border-earth-100">
+                    <div className="flex items-center gap-1.5 text-gray-500 text-[10px] font-bold uppercase mb-1">
+                      <Sunrise className="w-3 h-3 text-amber-500" />
+                      <span>Sunrise</span>
+                    </div>
+                    <p className="text-sm sm:text-base font-black text-gray-900">
+                      {weatherData.sunrise || '06:05 AM'}
+                    </p>
+                    <span className="text-[10px] text-gray-400">Dawn solar start</span>
+                  </div>
+
+                  {/* Sunset */}
+                  <div className="p-3 rounded-xl bg-earth-50 border border-earth-100">
+                    <div className="flex items-center gap-1.5 text-gray-500 text-[10px] font-bold uppercase mb-1">
+                      <Sunset className="w-3 h-3 text-orange-500" />
+                      <span>Sunset</span>
+                    </div>
+                    <p className="text-sm sm:text-base font-black text-gray-900">
+                      {weatherData.sunset || '06:40 PM'}
+                    </p>
+                    <span className="text-[10px] text-gray-400">Dusk twilight</span>
+                  </div>
+
+                  {/* Radar Telemetry Source */}
+                  <div className="p-3 rounded-xl bg-earth-50 border border-earth-100">
+                    <div className="flex items-center gap-1.5 text-gray-500 text-[10px] font-bold uppercase mb-1">
+                      <MapPin className="w-3 h-3 text-krishi-700" />
+                      <span>Grid Radar</span>
+                    </div>
+                    <p className="text-xs font-black text-gray-900 truncate">
+                      {weatherData.coordinates ? `${weatherData.coordinates.latitude.toFixed(2)}°N, ${weatherData.coordinates.longitude.toFixed(2)}°E` : 'Calibrated'}
+                    </p>
+                    <span className="text-[10px] text-gray-400">Open-Meteo High-Res</span>
+                  </div>
                 </div>
               </div>
             </div>

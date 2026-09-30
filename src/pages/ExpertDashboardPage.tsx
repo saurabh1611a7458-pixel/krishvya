@@ -113,7 +113,7 @@ export const ExpertDashboardPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FBFBF7] flex">
+    <div className="min-h-screen bg-[#FAF9F6] flex">
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0 pb-20 lg:pb-10">

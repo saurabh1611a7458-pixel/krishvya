@@ -1,1 +1,0 @@
-import{j as t}from"./index-BA9UEA52.js";const d=({children:r,className:o="",hoverable:s=!1,...e})=>t.jsx("div",{className:`bg-white rounded-2xl border border-earth-200/80 shadow-soft p-5 md:p-6 transition-all duration-200 ${s?"hover:shadow-soft-lg hover:border-krishi-300 hover:-translate-y-0.5":""} ${o}`,...e,children:r});export{d as C};

@@ -146,7 +146,7 @@ export const OnboardingPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FBFBF7] flex flex-col justify-between selection:bg-krishi-100">
+    <div className="min-h-screen bg-[#FAF9F6] flex flex-col justify-between selection:bg-krishi-100">
       {/* Top Header */}
       <header className="bg-white border-b border-earth-200/80 px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-2.5">

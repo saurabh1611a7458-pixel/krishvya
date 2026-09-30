@@ -81,7 +81,7 @@ export const LandingPage: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#FBFBF7] flex flex-col selection:bg-krishi-100">
+    <div className="min-h-screen bg-[#FAF9F6] flex flex-col selection:bg-krishi-100">
       <Navbar />
 
       {/* Hero Section */}

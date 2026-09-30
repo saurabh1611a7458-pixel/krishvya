@@ -8,16 +8,16 @@ import {
   Layers,
   Bot,
   Stethoscope,
-  ScanLine,
   Leaf,
   CalendarDays,
   SlidersHorizontal,
   Bell,
   FileText,
   Globe2,
-  User,
   Sprout,
   Pipette,
+  History,
+  User,
 } from 'lucide-react';
 import { UserButton } from '@clerk/clerk-react';
 import { useFarm } from '../../context/FarmContext';
@@ -25,34 +25,34 @@ import { LanguageSelector } from './LanguageSelector';
 
 export const navSections = [
   {
-    title: 'MY FARM',
+    title: 'MAIN',
     items: [
-      { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+      { name: 'Home', path: '/dashboard', icon: LayoutDashboard },
       { name: 'My Farm', path: '/farm', icon: Trees },
-      { name: 'Crop Health', path: '/crop-health', icon: Satellite },
       { name: 'Weather', path: '/weather', icon: CloudSun },
-      { name: 'Soil Health', path: '/soil', icon: Layers },
+      { name: 'My Crop', path: '/crop-health', icon: Satellite },
+      { name: 'My Soil', path: '/soil', icon: Layers },
     ],
   },
   {
-    title: 'AI TOOLS',
+    title: 'AI & ACTION',
     items: [
-      { name: 'AI Advisor', path: '/ai-advisor', icon: Bot },
-      { name: 'Disease Doctor', path: '/disease', icon: Stethoscope },
-      { name: 'Plant Scanner', path: '/plant-scanner', icon: ScanLine },
-      { name: 'Crop Planner', path: '/crop-planner', icon: CalendarDays },
-      { name: 'What-if', path: '/what-if', icon: SlidersHorizontal },
+      { name: 'Ask KRISHVYA', path: '/ai-advisor', icon: Bot },
+      { name: 'Check Plant', path: '/disease', icon: Stethoscope },
+      { name: 'Farm Plan', path: '/crop-planner', icon: CalendarDays },
+      { name: 'Alerts', path: '/alerts', icon: Bell },
     ],
   },
   {
     title: 'MORE',
     items: [
+      { name: 'Farm Records', path: '/reports', icon: FileText },
+      { name: 'Past Activities', path: '/history', icon: History },
       { name: 'Tank Dosing', path: '/tank-calculator', icon: Pipette },
       { name: 'Regenerative', path: '/regenerative', icon: Leaf },
-      { name: 'Alerts', path: '/alerts', icon: Bell },
-      { name: 'Reports', path: '/reports', icon: FileText },
+      { name: 'What-if', path: '/what-if', icon: SlidersHorizontal },
       { name: 'BRICS Hub', path: '/brics', icon: Globe2 },
-      { name: 'Profile', path: '/profile', icon: User },
+      { name: 'Profile / Settings', path: '/profile', icon: User },
     ],
   },
 ];

@@ -273,7 +273,7 @@ export const DiseaseDoctorPage: React.FC = () => {
   }, [activeScan?.severity]);
 
   return (
-    <div className="min-h-screen bg-[#FBFBF7] flex">
+    <div className="min-h-screen bg-[#FAF9F6] flex">
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0 pb-24 lg:pb-12">
@@ -303,11 +303,11 @@ export const DiseaseDoctorPage: React.FC = () => {
                   <Stethoscope className="w-4 h-4" />
                 </div>
                 <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
-                  Disease Doctor
+                  Check Plant
                 </h1>
               </div>
               <p className="text-xs text-gray-500 mt-0.5">
-                Upload a crop photo and get AI guidance
+                What is wrong with my plant? Upload or take a photo to check disease and get action steps.
               </p>
             </div>
 

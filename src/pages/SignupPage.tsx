@@ -15,7 +15,7 @@ import { LanguageSelector } from '../components/common/LanguageSelector';
 
 export const SignupPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-[#FBFBF7] relative flex flex-col justify-between selection:bg-krishi-100 overflow-x-hidden">
+    <div className="min-h-screen bg-[#FAF9F6] relative flex flex-col justify-between selection:bg-krishi-100 overflow-x-hidden">
       {/* Ambient background glows */}
       <div className="pointer-events-none absolute -top-24 -left-24 w-96 h-96 rounded-full bg-emerald-200/30 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-amber-100/40 blur-3xl" />

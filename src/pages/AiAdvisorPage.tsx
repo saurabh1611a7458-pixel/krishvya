@@ -3,6 +3,7 @@ import { useUser } from '@clerk/clerk-react';
 import { Sidebar } from '../components/common/Sidebar';
 import { MobileBottomNav } from '../components/common/MobileBottomNav';
 import { useFarm } from '../context/FarmContext';
+import { useFarmIntelligence } from '../context/FarmIntelligenceContext';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
 import { voiceService } from '../services/voiceService';
@@ -110,6 +111,7 @@ const generateDynamicQuestions = (farm: Farm, hasFarm: boolean, language: string
 
 export const AiAdvisorPage: React.FC = () => {
   const { farm, farms, user } = useFarm();
+  const { intelligence } = useFarmIntelligence();
   const { user: clerkUser } = useUser();
   const { language } = useLanguage();
 
@@ -276,6 +278,9 @@ export const AiAdvisorPage: React.FC = () => {
           soil: farm.soil,
           irrigationType: farm.irrigationType,
           weather: farm.weather,
+          todayPrimaryAction: `${intelligence.primaryAction.title}: ${intelligence.primaryAction.advice}`,
+          todayActionReason: intelligence.primaryAction.whatItMeans,
+          aiPromptContext: intelligence.aiPromptContext,
         }
       : null;
 
@@ -362,7 +367,7 @@ export const AiAdvisorPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FBFBF7] flex">
+    <div className="min-h-screen bg-[#FAF9F6] flex">
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden pb-16 lg:pb-0">
@@ -376,7 +381,7 @@ export const AiAdvisorPage: React.FC = () => {
             </div>
             <div className="min-w-0">
               <h1 className="text-base sm:text-lg font-black text-gray-900 tracking-tight leading-tight truncate">
-                AI Farm Advisor
+                Ask KRISHVYA
               </h1>
               <p className="text-xs text-gray-500 truncate">
                 {hasFarm ? (
@@ -547,7 +552,7 @@ export const AiAdvisorPage: React.FC = () => {
                 e.preventDefault();
                 handleSend();
               }}
-              className="flex items-center gap-2 bg-[#FBFBF7] p-1.5 sm:p-2 rounded-2xl border border-earth-300 focus-within:border-emerald-600 focus-within:bg-white transition-all shadow-xs"
+              className="flex items-center gap-2 bg-[#FAF9F6] p-1.5 sm:p-2 rounded-2xl border border-earth-300 focus-within:border-emerald-600 focus-within:bg-white transition-all shadow-xs"
             >
               {/* Mic Voice Button */}
               <button

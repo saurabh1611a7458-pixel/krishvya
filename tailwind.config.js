@@ -40,6 +40,16 @@ export default {
           400: '#facc15',
           500: '#eab308',
           600: '#ca8a04',
+        },
+        brand: {
+          green: '#15803D',
+          light: '#DCFCE7',
+          bg: '#FAF9F6',
+          text: '#172033',
+          muted: '#667085',
+          blue: '#2563EB',
+          amber: '#D97706',
+          red: '#DC2626',
         }
       },
       fontFamily: {

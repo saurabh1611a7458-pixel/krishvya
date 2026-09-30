@@ -11,16 +11,18 @@ import { AdviceCard } from '../components/dashboard/AdviceCard';
 import { QuickActions } from '../components/dashboard/QuickActions';
 import { LanguageSelector } from '../components/common/LanguageSelector';
 import { useFarm } from '../context/FarmContext';
+import { useFarmIntelligence } from '../context/FarmIntelligenceContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Bell, MapPin, AlertCircle, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const DashboardPage: React.FC = () => {
   const { user, farm, farms, problemCases, selectFarm, selectedFarmId } = useFarm();
+  const { intelligence, weatherData } = useFarmIntelligence();
   const { t } = useLanguage();
 
   return (
-    <div className="min-h-screen bg-[#FBFBF7] flex">
+    <div className="min-h-screen bg-[#FAF9F6] flex">
       {/* Desktop Left Sidebar */}
       <Sidebar />
 
@@ -28,32 +30,42 @@ export const DashboardPage: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 pb-20 lg:pb-10">
         {/* Top App Bar */}
         <header className="bg-white border-b border-earth-200/80 px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-xs">
-          {/* Farm Location Pill / Selector */}
-          <div className="flex items-center gap-2">
+          {/* Streamlined Farm Switcher */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full bg-earth-100/90 text-earth-900 text-xs sm:text-sm font-medium border border-earth-200">
+              <span className="font-bold text-krishi-800 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-krishi-700 shrink-0" />
+                {farm.name || 'My Farm'}
+              </span>
+              <span className="text-gray-300">•</span>
+              <span className="text-gray-600 font-medium">{farm.size} {farm.sizeUnit || 'acres'}</span>
+              <span className="text-gray-300">•</span>
+              <span className="text-krishi-700 font-semibold">{farm.crop?.name || 'Crop not set'}</span>
+            </div>
+
             {farms.length > 1 ? (
-              <div className="relative flex items-center">
+              <div className="relative">
                 <select
                   value={selectedFarmId || farm.id}
                   onChange={(e) => selectFarm(e.target.value)}
-                  className="appearance-none bg-earth-100/90 text-earth-900 text-xs sm:text-sm font-semibold border border-earth-200 rounded-full pl-8 pr-8 py-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-krishi-600 shadow-2xs hover:bg-earth-200/80 transition-all"
-                  aria-label="Select active farm"
+                  className="appearance-none bg-krishi-50 hover:bg-krishi-100 text-krishi-800 text-xs font-bold border border-krishi-200 rounded-full pl-3 pr-7 py-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-krishi-600 transition-colors"
+                  aria-label="Change active farm"
                 >
                   {farms.map((f) => (
                     <option key={f.id} value={f.id}>
-                      {f.name} • {f.size} {f.sizeUnit || 'ac'} ({f.location?.district || f.location?.address || 'Farm'})
+                      Change: {f.name} ({f.crop?.name || 'Crop'})
                     </option>
                   ))}
                 </select>
-                <MapPin className="w-3.5 h-3.5 text-krishi-700 absolute left-3 pointer-events-none" />
-                <ChevronDown className="w-3.5 h-3.5 text-gray-500 absolute right-3 pointer-events-none" />
+                <ChevronDown className="w-3.5 h-3.5 text-krishi-700 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-earth-100/90 text-earth-900 text-xs sm:text-sm font-semibold border border-earth-200">
-                <MapPin className="w-3.5 h-3.5 text-krishi-700" />
-                <span>{farm.name ? `${farm.name} • ` : ''}{farm.location?.address || 'No farm location set'}</span>
-                <span className="text-gray-400">•</span>
-                <span>{farm.size} {farm.sizeUnit}</span>
-              </div>
+              <Link
+                to="/farm"
+                className="text-xs font-bold text-krishi-700 hover:text-krishi-800 px-3 py-1.5 rounded-full bg-krishi-50 border border-krishi-200 hover:bg-krishi-100 transition-colors"
+              >
+                Change Farm
+              </Link>
             )}
           </div>
 
@@ -145,19 +157,58 @@ export const DashboardPage: React.FC = () => {
             </div>
           )}
 
-          {/* Core Farm Health Gauge Card */}
-          <FarmHealthCard score={farm.farmHealthScore || 84} />
+          {/* Farm Status Card - Simple Command Center Summary */}
+          <FarmHealthCard
+            score={intelligence.healthScore}
+            status={intelligence.healthStatus}
+            cropStatus={
+              intelligence.domainAdvisories.cropProtection.status?.toLowerCase().includes('critical') ||
+              intelligence.domainAdvisories.cropProtection.status?.toLowerCase().includes('action')
+                ? 'Action needed'
+                : intelligence.domainAdvisories.cropProtection.status?.toLowerCase().includes('warn') ||
+                  intelligence.domainAdvisories.cropProtection.status?.toLowerCase().includes('alert')
+                ? 'Check'
+                : 'Good'
+            }
+            soilStatus={
+              intelligence.domainAdvisories.soilNutrition.status?.toLowerCase().includes('critical') ||
+              intelligence.domainAdvisories.soilNutrition.status?.toLowerCase().includes('action')
+                ? 'Action needed'
+                : intelligence.domainAdvisories.soilNutrition.status?.toLowerCase().includes('warn') ||
+                  intelligence.domainAdvisories.soilNutrition.status?.toLowerCase().includes('defic')
+                ? 'Check'
+                : 'Good'
+            }
+            weatherStatus={
+              (weatherData?.rainProbability ?? 0) >= 50 || (weatherData?.temperature ?? 0) >= 38
+                ? 'Warning'
+                : 'Normal'
+            }
+            actionsCount={
+              (intelligence.primaryAction?.severity === 'high' || intelligence.primaryAction?.severity === 'critical' ? 1 : 0) +
+              (intelligence.weeklyTasks?.filter((t) => t.priority === 'high').length ?? 0)
+            }
+            cropSummary={intelligence.domainAdvisories.cropProtection.advice}
+            soilSummary={intelligence.domainAdvisories.soilNutrition.advice}
+            weatherSummary={
+              weatherData?.condition
+                ? `${weatherData.condition} • ${weatherData.temperature}°C`
+                : farm.weather?.temperature
+                ? `${farm.weather.temperature}°C • Humidity ${farm.weather.humidity}%`
+                : undefined
+            }
+          />
 
           {/* 4 Metric Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            <WeatherCard weather={farm.weather} />
+            <WeatherCard weather={weatherData || farm.weather} />
             <CropCard crop={farm.crop} />
             <SoilCard soil={farm.soil} />
             <CropHealthCard satellite={farm.satellite} />
           </div>
 
-          {/* Today's Actionable Advice Banner with Authentic Crop Preview */}
-          <AdviceCard advice={farm.weather.advice} />
+          {/* Today's Actionable Priority Action ("What needs my attention today?") */}
+          <AdviceCard primaryAction={intelligence.primaryAction} />
 
           {/* Quick Actions (Ask AI, Scan Plant, Check Crop, Improve Soil) */}
           <QuickActions />

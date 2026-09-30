@@ -223,7 +223,7 @@ export const SoilHealthPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FBFBF7] flex">
+    <div className="min-h-screen bg-[#FAF9F6] flex">
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0 pb-20 lg:pb-10">
@@ -232,7 +232,7 @@ export const SoilHealthPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <Layers className="w-5 h-5 text-amber-800" />
               <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
-                Soil Health
+                My Soil
               </h1>
             </div>
             <p className="text-xs text-gray-500">

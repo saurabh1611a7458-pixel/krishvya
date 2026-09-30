@@ -239,7 +239,7 @@ export const CropHealthPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FBFBF7] flex">
+    <div className="min-h-screen bg-[#FAF9F6] flex">
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0 pb-20 lg:pb-10">
@@ -248,7 +248,7 @@ export const CropHealthPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <Satellite className="w-5 h-5 text-krishi-700" />
               <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
-                Crop Health (Live Satellite)
+                My Crop
               </h1>
               {userGpsLocation && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">

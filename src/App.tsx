@@ -12,7 +12,7 @@ const ClerkProviderWrapper: React.FC<{ children: React.ReactNode }> = ({ childre
 
   if (!PUBLISHABLE_KEY) {
     return (
-      <div className="min-h-screen bg-[#FBFBF7] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-earth-200 shadow-soft-lg text-center space-y-4">
           <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto text-xl font-bold">
             ⚠️
@@ -56,13 +56,17 @@ const ClerkProviderWrapper: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 };
 
+import { FarmIntelligenceProvider } from './context/FarmIntelligenceContext';
+
 export const App: React.FC = () => {
   return (
     <BrowserRouter>
       <ClerkProviderWrapper>
         <LanguageProvider>
           <FarmProvider>
-            <AppRoutes />
+            <FarmIntelligenceProvider>
+              <AppRoutes />
+            </FarmIntelligenceProvider>
           </FarmProvider>
         </LanguageProvider>
       </ClerkProviderWrapper>

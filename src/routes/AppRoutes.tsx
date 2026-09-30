@@ -32,7 +32,7 @@ const AdminDashboardPage = lazy(() => import('../pages/AdminDashboardPage').then
 const TankCalculatorPage = lazy(() => import('../pages/TankCalculatorPage').then(m => ({ default: m.TankCalculatorPage })));
 
 const PageLoadingFallback: React.FC = () => (
-  <div className="min-h-screen bg-[#FBFBF7] flex flex-col items-center justify-center p-4">
+  <div className="min-h-screen bg-[#FAF9F6] flex flex-col items-center justify-center p-4">
     <div className="w-10 h-10 border-4 border-krishi-700 border-t-transparent rounded-full animate-spin mb-3" />
     <p className="text-xs font-semibold text-gray-600">Loading KRISHVYA...</p>
   </div>
@@ -46,7 +46,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   // 1. While Clerk auth or initial Supabase sync is running
   if (!clerkLoaded || isSyncingAuth) {
     return (
-      <div className="min-h-screen bg-[#FBFBF7] flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen bg-[#FAF9F6] flex flex-col items-center justify-center p-4">
         <div className="w-10 h-10 border-4 border-krishi-700 border-t-transparent rounded-full animate-spin mb-4" />
         <p className="text-sm font-bold text-gray-800">Connecting to KRISHVYA Farm Cloud...</p>
         <p className="text-xs text-gray-500 mt-1">Syncing profile & farm intelligence with Supabase</p>
@@ -260,6 +260,7 @@ export const AppRoutes: React.FC = () => {
       {/* Route Aliases */}
       <Route path="/soil-health" element={<Navigate to="/soil" replace />} />
       <Route path="/disease-doctor" element={<Navigate to="/disease" replace />} />
+      <Route path="/check-plant" element={<Navigate to="/disease" replace />} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />

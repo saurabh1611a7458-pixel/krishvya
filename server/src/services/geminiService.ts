@@ -277,7 +277,7 @@ Farmer & Farm Context (Source of Truth):
 - Crop: ${cropStr}
 - Soil Information: ${soilStr}
 - Irrigation: ${irrigationStr}
-- Live Weather: ${weatherStr}${memoryContext}${knowledgeContext}
+- Live Weather: ${weatherStr}${farmContext?.todayPrimaryAction ? `\n- Today's Farm Priority Recommendation: ${farmContext.todayPrimaryAction} (Reason: ${farmContext.todayActionReason || ''})` : ''}${memoryContext}${knowledgeContext}
 
 Rules:
 1. Ground your answers directly in the farmer's actual crop, location, weather, and soil data above.

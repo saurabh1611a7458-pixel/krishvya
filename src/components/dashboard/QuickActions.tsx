@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Bot, Camera, ScanLine, Sprout, ArrowRight } from 'lucide-react';
+import { Bot, Stethoscope, CloudSun, CalendarDays, ArrowRight } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 
 export const QuickActions: React.FC = () => {
@@ -8,36 +8,36 @@ export const QuickActions: React.FC = () => {
 
   const actions = [
     {
-      title: t('askAi'),
-      subtitle: 'Ask about irrigation, yield, seeds',
-      icon: Bot,
-      color: 'bg-emerald-500 text-white',
-      border: 'hover:border-emerald-400',
-      path: '/ai-advisor',
-    },
-    {
-      title: t('checkCrop'),
-      subtitle: 'Disease detection from leaf photo',
-      icon: Camera,
-      color: 'bg-amber-500 text-white',
+      title: 'Check Plant',
+      subtitle: 'Identify disease from leaf scan',
+      icon: Stethoscope,
+      color: 'bg-amber-600 text-white',
       border: 'hover:border-amber-400',
       path: '/disease',
     },
     {
-      title: t('scanPlant'),
-      subtitle: 'Identify weeds & unknown plants',
-      icon: ScanLine,
-      color: 'bg-teal-500 text-white',
-      border: 'hover:border-teal-400',
-      path: '/plant-scanner',
+      title: 'Ask KRISHVYA',
+      subtitle: 'Ask voice or text farm advisor',
+      icon: Bot,
+      color: 'bg-emerald-600 text-white',
+      border: 'hover:border-emerald-400',
+      path: '/ai-advisor',
     },
     {
-      title: t('improveSoil'),
-      subtitle: 'Organic carbon & nutrient tips',
-      icon: Sprout,
+      title: 'View Weather',
+      subtitle: 'Rain probability & field outlook',
+      icon: CloudSun,
+      color: 'bg-blue-600 text-white',
+      border: 'hover:border-blue-400',
+      path: '/weather',
+    },
+    {
+      title: 'Farm Plan',
+      subtitle: 'Seasonal schedule & crop tasks',
+      icon: CalendarDays,
       color: 'bg-krishi-700 text-white',
       border: 'hover:border-krishi-500',
-      path: '/soil',
+      path: '/crop-planner',
     },
   ];
 
