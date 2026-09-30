@@ -116,6 +116,25 @@ export const HistoryPage: React.FC = () => {
           });
         }
 
+        // 5. Farm Activities & Completed Tasks
+        const farmEvents = await supabaseService.getFarmEvents(user.id, farm.id);
+        if (farmEvents && farmEvents.length > 0) {
+          farmEvents.forEach((fe) => {
+            items.push({
+              id: fe.id || `evt_${Math.random()}`,
+              date: new Date(fe.created_at || Date.now()).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              }),
+              type: fe.event_type === 'task_completed' ? 'Task Completed' : 'Farm Activity',
+              title: fe.description || 'Task Completed',
+              desc: `Recorded under ${farm.name || 'farm'} field operations checklist.`,
+              category: 'farm',
+            });
+          });
+        }
+
         // Sort descending by date
         items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -152,28 +171,46 @@ export const HistoryPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] flex">
+    <div className="min-h-screen bg-[#F8F8F4] flex">
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0 pb-20 lg:pb-10">
-        <header className="bg-white border-b border-earth-200/80 px-4 sm:px-8 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-0 z-20">
+        <header className="bg-white border-b border-[#E5E7EB] px-4 sm:px-8 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-0 z-20">
           <div>
             <div className="flex items-center gap-2">
-              <History className="w-5 h-5 text-krishi-700" />
-              <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
-                Past Activities
+              <History className="w-5 h-5 text-[#166534]" />
+              <h1 className="text-lg sm:text-xl font-bold text-[#1F2937] tracking-tight">
+                Farm History
               </h1>
             </div>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Chronological log of operations, soil tests, scans, and resolved cases for {farm.name || 'selected farm'}
+            <p className="text-xs text-[#6B7280] mt-0.5">
+              Chronological log of activities, soil tests, scans, and verified records for {farm.name || 'selected farm'}
             </p>
           </div>
 
-          {farm.name && (
-            <span className="text-xs font-bold text-gray-600 bg-earth-100 px-3 py-1 rounded-full border border-earth-200 w-fit">
-              {farm.name} • {farm.crop?.name || 'Crop'}
-            </span>
-          )}
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Tab Switcher: Past Activities vs Farm Records */}
+            <div className="flex items-center gap-1 p-1 bg-[#F8F8F4] border border-[#E5E7EB] rounded-xl">
+              <Link
+                to="/history"
+                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-[#166534] text-white shadow-2xs"
+              >
+                Past Activities
+              </Link>
+              <Link
+                to="/reports"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-[#6B7280] hover:text-[#1F2937] hover:bg-white"
+              >
+                Farm Records
+              </Link>
+            </div>
+
+            {farm.name && (
+              <span className="hidden md:inline-flex text-xs font-semibold text-[#166534] bg-[#EAF4EC] border border-[#D1E7D6] px-3 py-1 rounded-xl">
+                {farm.name} • {farm.crop?.name || 'Crop'}
+              </span>
+            )}
+          </div>
         </header>
 
         <main className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto w-full space-y-6">

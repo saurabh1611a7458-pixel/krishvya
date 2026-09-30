@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { Sidebar } from '../components/common/Sidebar';
 import { MobileBottomNav } from '../components/common/MobileBottomNav';
 import { Card } from '../components/common/Card';
@@ -225,26 +226,42 @@ export const ReportsPage: React.FC = () => {
   }, [timelinePoints]);
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] flex">
+    <div className="min-h-screen bg-[#F8F8F4] flex">
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0 pb-20 lg:pb-10">
-        <header className="bg-white border-b border-earth-200/80 px-4 sm:px-8 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sticky top-0 z-20">
+        <header className="bg-white border-b border-[#E5E7EB] px-4 sm:px-8 py-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sticky top-0 z-20">
           <div>
             <div className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-krishi-700" />
-              <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
-                Farm Records
+              <FileText className="w-5 h-5 text-[#166534]" />
+              <h1 className="text-lg sm:text-xl font-bold text-[#1F2937] tracking-tight">
+                Farm History
               </h1>
             </div>
-            <p className="text-xs text-gray-500">
-              Official telemetry statements for {farm.name} • Certified audit trail
+            <p className="text-xs text-[#6B7280]">
+              Official telemetry statements and verified records for {farm.name}
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-earth-100 text-xs font-bold text-gray-700">
-              <Calendar className="w-3.5 h-3.5 text-krishi-700" />
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Tab Switcher: Past Activities vs Farm Records */}
+            <div className="flex items-center gap-1 p-1 bg-[#F8F8F4] border border-[#E5E7EB] rounded-xl">
+              <Link
+                to="/history"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-[#6B7280] hover:text-[#1F2937] hover:bg-white"
+              >
+                Past Activities
+              </Link>
+              <Link
+                to="/reports"
+                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-[#166534] text-white shadow-2xs"
+              >
+                Farm Records
+              </Link>
+            </div>
+
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#EAF4EC] border border-[#D1E7D6] text-xs font-bold text-[#166534]">
+              <Calendar className="w-3.5 h-3.5 text-[#166534]" />
               <span>{dateRangeText}</span>
             </div>
 

@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import {
-  Home,
+  LayoutDashboard,
   Trees,
+  CloudSun,
   Bot,
-  Menu,
+  MoreHorizontal,
   X,
   Satellite,
-  CloudSun,
   Layers,
   Stethoscope,
   Leaf,
@@ -15,7 +15,6 @@ import {
   SlidersHorizontal,
   Bell,
   History,
-  FileText,
   Globe2,
   User,
   Pipette,
@@ -27,29 +26,37 @@ export const MobileBottomNav: React.FC = () => {
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
   const { user, farm } = useFarm();
 
-  const moreSections = [
+  const farmerName = user?.name || 'Farmer';
+  const locationText =
+    farm?.location?.district ||
+    farm?.location?.state ||
+    farm?.location?.address ||
+    null;
+  const sizeText = farm?.size ? `${farm.size} ${farm.sizeUnit || 'acres'}` : null;
+  const farmDetails = [locationText, sizeText].filter(Boolean).join(' • ') || (farm?.name || 'Setup Farm');
+
+  const drawerSections = [
     {
-      title: 'MAIN',
+      title: 'FARM HELP',
       items: [
-        { name: 'Weather', path: '/weather', icon: CloudSun },
-        { name: 'My Crop', path: '/crop-health', icon: Satellite },
-        { name: 'My Soil', path: '/soil', icon: Layers },
-      ],
-    },
-    {
-      title: 'AI & ACTION',
-      items: [
+        { name: 'Check Plant', path: '/disease', icon: Stethoscope }, // to="/disease" Check Plant tab
         { name: 'Farm Plan', path: '/crop-planner', icon: CalendarDays },
         { name: 'Alerts', path: '/alerts', icon: Bell },
       ],
     },
     {
-      title: 'MORE',
+      title: 'MY FARM DATA',
       items: [
-        { name: 'Farm Records', path: '/reports', icon: FileText },
-        { name: 'Past Activities', path: '/history', icon: History },
+        { name: 'My Crop', path: '/crop-health', icon: Satellite },
+        { name: 'My Soil', path: '/soil', icon: Layers },
+      ],
+    },
+    {
+      title: 'MORE TOOLS',
+      items: [
+        { name: 'Farm History', path: '/history', icon: History },
         { name: 'Tank Dosing', path: '/tank-calculator', icon: Pipette },
-        { name: 'Regenerative', path: '/regenerative', icon: Leaf },
+        { name: 'Regenerative Farming', path: '/regenerative', icon: Leaf },
         { name: 'What-if', path: '/what-if', icon: SlidersHorizontal },
         { name: 'BRICS Hub', path: '/brics', icon: Globe2 },
         { name: 'Profile / Settings', path: '/profile', icon: User },
@@ -59,26 +66,28 @@ export const MobileBottomNav: React.FC = () => {
 
   return (
     <>
-      {/* Fixed Bottom Nav for Mobile */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-earth-200/90 shadow-lg px-1 py-1 select-none">
+      {/* Fixed 5-Item Bottom Nav for Mobile */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#E5E7EB] shadow-md px-1 py-1 select-none">
         <div className="grid grid-cols-5 items-center justify-around">
+          {/* 1. Home */}
           <NavLink
             to="/dashboard"
             className={({ isActive }) =>
               `flex flex-col items-center justify-center py-1.5 px-0.5 rounded-xl text-[10px] font-bold transition-colors ${
-                isActive ? 'text-krishi-700 bg-krishi-50' : 'text-gray-500 hover:text-gray-800'
+                isActive ? 'text-[#166534] bg-[#EAF4EC]' : 'text-[#4B5563] hover:text-[#166534]'
               }`
             }
           >
-            <Home className="w-4 h-4 mb-0.5" />
+            <LayoutDashboard className="w-4 h-4 mb-0.5" />
             <span>Home</span>
           </NavLink>
 
+          {/* 2. My Farm */}
           <NavLink
             to="/farm"
             className={({ isActive }) =>
               `flex flex-col items-center justify-center py-1.5 px-0.5 rounded-xl text-[10px] font-bold transition-colors ${
-                isActive ? 'text-krishi-700 bg-krishi-50' : 'text-gray-500 hover:text-gray-800'
+                isActive ? 'text-[#166534] bg-[#EAF4EC]' : 'text-[#4B5563] hover:text-[#166534]'
               }`
             }
           >
@@ -86,23 +95,25 @@ export const MobileBottomNav: React.FC = () => {
             <span>My Farm</span>
           </NavLink>
 
+          {/* 3. Weather */}
           <NavLink
-            to="/disease"
+            to="/weather"
             className={({ isActive }) =>
               `flex flex-col items-center justify-center py-1.5 px-0.5 rounded-xl text-[10px] font-bold transition-colors ${
-                isActive ? 'text-krishi-700 bg-krishi-50' : 'text-gray-500 hover:text-gray-800'
+                isActive ? 'text-[#166534] bg-[#EAF4EC]' : 'text-[#4B5563] hover:text-[#166534]'
               }`
             }
           >
-            <Stethoscope className="w-4 h-4 mb-0.5" />
-            <span>Check Plant</span>
+            <CloudSun className="w-4 h-4 mb-0.5" />
+            <span>Weather</span>
           </NavLink>
 
+          {/* 4. Ask KRISHVYA */}
           <NavLink
             to="/ai-advisor"
             className={({ isActive }) =>
               `flex flex-col items-center justify-center py-1.5 px-0.5 rounded-xl text-[10px] font-bold transition-colors ${
-                isActive ? 'text-krishi-700 bg-krishi-50' : 'text-gray-500 hover:text-gray-800'
+                isActive ? 'text-[#166534] bg-[#EAF4EC]' : 'text-[#4B5563] hover:text-[#166534]'
               }`
             }
           >
@@ -110,14 +121,16 @@ export const MobileBottomNav: React.FC = () => {
             <span>Ask AI</span>
           </NavLink>
 
+          {/* 5. More */}
           <button
             onClick={() => setMoreDrawerOpen(true)}
             type="button"
-            className={`flex flex-col items-center justify-center py-1.5 px-0.5 rounded-xl text-[10px] font-bold transition-colors ${
-              moreDrawerOpen ? 'text-krishi-700 bg-krishi-50' : 'text-gray-500 hover:text-gray-800'
+            className={`flex flex-col items-center justify-center py-1.5 px-0.5 rounded-xl text-[10px] font-bold transition-colors cursor-pointer ${
+              moreDrawerOpen ? 'text-[#166534] bg-[#EAF4EC]' : 'text-[#4B5563] hover:text-[#166534]'
             }`}
+            aria-label="Open more menu"
           >
-            <Menu className="w-4 h-4 mb-0.5" />
+            <MoreHorizontal className="w-4 h-4 mb-0.5" />
             <span>More</span>
           </button>
         </div>
@@ -133,35 +146,36 @@ export const MobileBottomNav: React.FC = () => {
 
           <div className="fixed inset-y-0 right-0 max-w-xs w-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
             {/* Drawer Header */}
-            <div className="p-4 border-b border-earth-200 flex items-center justify-between bg-earth-50">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-krishi-700 text-white flex items-center justify-center font-bold text-sm">
-                  K
+            <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between bg-[#F8F8F4]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#166534] text-white flex items-center justify-center font-bold text-xs">
+                  {farmerName.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900 text-sm">KRISHVYA Menu</h3>
-                  <p className="text-[10px] text-gray-500">{user.name}</p>
+                  <h3 className="font-bold text-[#1F2937] text-sm">KRISHVYA Menu</h3>
+                  <p className="text-[10px] text-[#6B7280]">{farmerName}</p>
                 </div>
               </div>
               <button
                 onClick={() => setMoreDrawerOpen(false)}
-                className="p-1.5 rounded-lg text-gray-500 hover:bg-white"
+                className="p-1.5 rounded-lg text-[#6B7280] hover:bg-white cursor-pointer"
+                aria-label="Close menu"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Language switch */}
-            <div className="p-3 border-b border-earth-100 flex items-center justify-between">
-              <span className="text-xs font-medium text-gray-500">Language:</span>
+            {/* Language Switcher */}
+            <div className="px-4 py-2 border-b border-[#E5E7EB] bg-white flex items-center justify-between">
+              <span className="text-xs font-medium text-[#6B7280]">Language:</span>
               <LanguageSelector compact />
             </div>
 
             {/* Drawer Links */}
             <div className="flex-1 overflow-y-auto p-3 space-y-4">
-              {moreSections.map((sec) => (
+              {drawerSections.map((sec) => (
                 <div key={sec.title} className="space-y-1">
-                  <h4 className="px-3 pt-1 text-[10px] font-black uppercase tracking-wider text-gray-400">
+                  <h4 className="px-3 pt-1 text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">
                     {sec.title}
                   </h4>
                   {sec.items.map((item) => {
@@ -172,14 +186,14 @@ export const MobileBottomNav: React.FC = () => {
                         to={item.path}
                         onClick={() => setMoreDrawerOpen(false)}
                         className={({ isActive }) =>
-                          `flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors ${
+                          `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                             isActive
-                              ? 'bg-krishi-700 text-white font-bold'
-                              : 'text-gray-700 hover:bg-earth-100'
+                              ? 'bg-[#166534] text-white font-bold'
+                              : 'text-[#1F2937] hover:bg-[#EAF4EC] hover:text-[#166534]'
                           }`
                         }
                       >
-                        <Icon className="w-4 h-4" />
+                        <Icon className="w-4 h-4 shrink-0" />
                         <span>{item.name}</span>
                       </NavLink>
                     );
@@ -188,15 +202,15 @@ export const MobileBottomNav: React.FC = () => {
               ))}
             </div>
 
-            {/* Bottom farmer summary in drawer */}
-            <div className="p-3 border-t border-earth-100 bg-earth-50/50 text-xs text-gray-500 flex justify-between items-center">
-              <span>{farm.crop.name} • {farm.size} {farm.sizeUnit}</span>
+            {/* Bottom Farmer Summary in Drawer */}
+            <div className="p-3.5 border-t border-[#E5E7EB] bg-[#F8F8F4] text-xs text-[#6B7280] flex justify-between items-center">
+              <span className="truncate pr-2 font-medium">{farmDetails}</span>
               <Link
                 to="/profile"
                 onClick={() => setMoreDrawerOpen(false)}
-                className="text-krishi-700 font-semibold hover:underline"
+                className="text-[#166534] font-bold hover:underline shrink-0"
               >
-                Profile & Settings
+                Settings
               </Link>
             </div>
           </div>

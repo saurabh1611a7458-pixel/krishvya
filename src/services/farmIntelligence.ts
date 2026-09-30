@@ -396,38 +396,36 @@ export function synthesizeFarmIntelligence(input: FarmIntelligenceInput): FarmIn
     {
       id: 'task_1',
       day: 'Monday',
-      title: isRainImminent ? 'Clear Drainage Furrows' : 'Irrigation Check',
+      title: isRainImminent ? 'Clear Drainage Furrows' : 'Check Irrigation',
       description: isRainImminent
         ? 'Clear furrows and field bunds to avoid standing water after forecast rain.'
-        : `Check ${irrigationType} nozzles and deliver light root irrigation.`,
+        : 'Check soil moisture before watering.',
       category: 'irrigation',
-      priority: 'high',
+      priority: isRainImminent ? 'high' : 'normal',
     },
     {
       id: 'task_2',
       day: 'Wednesday',
-      title: hasActiveDisease ? `Scout & Treat ${latestDisease?.detectedProblem}` : 'Canopy Pest Scouting',
+      title: hasActiveDisease ? 'Possible pest/disease detected' : 'Check crop leaves for pests',
       description: hasActiveDisease
-        ? 'Check underside of leaves in affected parcel to confirm whether pathogen has spread.'
-        : 'Inspect 20 random plants across field diagonals for aphid or caterpillar feeding.',
+        ? `Check underside of leaves in affected parcel to confirm whether ${latestDisease?.detectedProblem} has spread.`
+        : 'Inspect 20 random plants across field diagonals for chewing or sucking insects.',
       category: 'protection',
       priority: hasActiveDisease ? 'high' : 'normal',
     },
     {
       id: 'task_3',
       day: 'Friday',
-      title: 'Soil Nutrient & Foliar Boost',
-      description: cropStage?.toLowerCase().includes('flower')
-        ? 'Apply recommended micronutrient / potassium spray for flowering strength.'
-        : 'Inspect soil moisture retention and check for nitrogen deficiency yellowing.',
+      title: 'Review Soil Status',
+      description: 'Inspect root zone moisture retention and check lower canopy for yellowing.',
       category: 'fertilizer',
       priority: 'normal',
     },
     {
       id: 'task_4',
       day: 'Sunday',
-      title: 'Weekly Farm Log & Health Review',
-      description: 'Review satellite vegetation index and log weekly field operations in KRISHVYA.',
+      title: 'Weekly Farm Review',
+      description: 'Review crop growth progress and check farm checklist in KRISHVYA.',
       category: 'monitoring',
       priority: 'normal',
     },

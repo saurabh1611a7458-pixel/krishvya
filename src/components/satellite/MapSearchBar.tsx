@@ -177,8 +177,8 @@ export const MapSearchBar: React.FC<MapSearchBarProps> = ({
         );
       case 'landmark':
         return (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
-            <Sparkles className="w-2.5 h-2.5" /> Landmark
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+            <Sparkles className="w-2.5 h-2.5 text-[#166534]" /> Landmark
           </span>
         );
       case 'coordinate':

@@ -9,6 +9,7 @@ import { api } from '../services/api';
 import { voiceService } from '../services/voiceService';
 import { supabaseService } from '../services/supabaseService';
 import { Farm } from '../types';
+import { FormattedMarkdown } from '../components/common/FormattedMarkdown';
 import {
   Bot,
   Mic,
@@ -16,7 +17,6 @@ import {
   Send,
   Plus,
   Sprout,
-  MapPin,
   Clock,
   Sparkles,
 } from 'lucide-react';
@@ -28,84 +28,27 @@ interface ChatMessage {
   timestamp: string;
 }
 
-// Generate 3 dynamic suggested questions based on real farm context
+// Generate 4-5 dynamic suggested questions based on real farm context
 const generateDynamicQuestions = (farm: Farm, hasFarm: boolean, language: string): string[] => {
-  const crop = hasFarm ? farm.crop?.name : null;
-  const stage = hasFarm ? farm.crop?.stage : null;
-  const rain = hasFarm ? farm.weather?.rainProbability : null;
-  const isRainExpected = typeof rain === 'number' && rain >= 50;
+  const crop = hasFarm && farm.crop?.name ? farm.crop.name : null;
+  const isHindi = language === 'hindi';
 
-  if (crop) {
-    if (isRainExpected) {
-      if (language === 'hindi') {
-        return [
-          `क्या आज बारिश के बाद ${crop} में सिंचाई करनी चाहिए?`,
-          `बारिश के मौसम में ${crop} को फंगस और रोग से कैसे बचाएं?`,
-          `क्या आज ${crop} पर खाद या स्प्रे करना ठीक रहेगा?`,
-        ];
-      }
-      if (language === 'marathi') {
-        return [
-          `पावसामुळे आज ${crop} पिकाला पाणी द्यावे का?`,
-          `पावसाच्या दिवसांत ${crop} पिकाला बुरशीपासून कसे वाचवावे?`,
-          `आज ${crop} पिकावर खत किंवा फवारणी करावी का?`,
-        ];
-      }
-      return [
-        `Should I water my ${crop} today after the rain?`,
-        `How to protect ${crop} from fungal diseases in wet weather?`,
-        `Should I apply fertilizer or spray on ${crop} today?`,
-      ];
-    }
-
-    if (stage) {
-      if (language === 'hindi') {
-        return [
-          `क्या आज मेरे ${crop} में सिंचाई करनी चाहिए?`,
-          `${stage} अवस्था में ${crop} के लिए कौन सा पोषण सर्वोत्तम है?`,
-          `आज मेरे ${crop} खेत में क्या मुख्य कार्य करना चाहिए?`,
-        ];
-      }
-      if (language === 'marathi') {
-        return [
-          `आज माझ्या ${crop} पिकाला पाणी देणे गरजेचे आहे का?`,
-          `${stage} अवस्थेत ${crop} साठी कोणते खत योग्य राहील?`,
-          `आज माझ्या ${crop} शेतात कोणते काम करावे?`,
-        ];
-      }
-      return [
-        `Should I irrigate my ${crop} today?`,
-        `What fertilizer is best for ${crop} at ${stage} stage?`,
-        `What should I do in my ${crop} field today?`,
-      ];
-    }
-
+  if (isHindi) {
     return [
-      `Should I irrigate my ${crop} today?`,
-      `How is my ${crop} health based on current conditions?`,
-      `What should I do in my ${crop} field today?`,
+      crop ? `क्या आज मेरे ${crop} में सिंचाई करनी चाहिए?` : 'क्या आज खेत में सिंचाई करनी चाहिए?',
+      crop ? `क्या बारिश से मेरे ${crop} पर असर पड़ेगा?` : 'क्या बारिश से मेरी फसल पर असर पड़ेगा?',
+      crop ? `मेरी ${crop} फसल की सेहत कैसी है?` : 'मेरी फसल की सेहत कैसी है?',
+      crop ? `मेरे ${crop} की पत्तियां पीली क्यों हो रही हैं?` : 'पत्तियां पीली क्यों हो रही हैं?',
+      'मेरी मिट्टी की सेहत सुधारने के लिए क्या करना चाहिए?',
     ];
   }
 
-  // Fallback if user has not registered a crop yet
-  if (language === 'hindi') {
-    return [
-      'आज मेरे खेत में क्या मुख्य कार्य करना चाहिए?',
-      'मेरी मिट्टी और मौसम के लिए कौन सी फसल उत्तम रहेगी?',
-      'मौसम को देखते हुए क्या सिंचाई की आवश्यकता है?',
-    ];
-  }
-  if (language === 'marathi') {
-    return [
-      'आज शेतात कोणते काम करणे फायदेशीर ठरेल?',
-      'माझ्या जमिनीसाठी कोणते पीक सर्वात योग्य आहे?',
-      'हवामानानुसार आज पिकाला पाणी द्यावे का?',
-    ];
-  }
   return [
-    'What should I do in my field today?',
-    'What crop is best suited for my soil and region?',
-    'Should I irrigate today based on the weather forecast?',
+    crop ? `Should I irrigate my ${crop} today?` : 'Should I irrigate today?',
+    crop ? `Will rain affect my ${crop}?` : 'Will rain affect my crop?',
+    crop ? `How is my ${crop} health right now?` : 'How is my crop?',
+    crop ? `Why are my ${crop} leaves turning yellow?` : 'Why are my leaves yellow?',
+    'What should I do for my soil?',
   ];
 };
 
@@ -367,47 +310,56 @@ export const AiAdvisorPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] flex">
+    <div className="min-h-screen bg-[#F8F8F4] flex">
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden pb-16 lg:pb-0">
         {/* ========================================================================= */}
-        {/* TOP APP BAR: Minimal & Clean Header with Farm Badge and New Chat Button   */}
+        {/* TOP APP BAR: Simplified Header with Separate Farm Context & New Chat      */}
         {/* ========================================================================= */}
-        <header className="bg-white border-b border-earth-200/80 px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-20 shrink-0">
-          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+        <header className="bg-white border-b border-[#E5E7EB] px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-20 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-[#166534] text-white flex items-center justify-center shrink-0 shadow-xs">
               <Bot className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-black text-gray-900 tracking-tight leading-tight truncate">
+              <h1 className="text-base sm:text-lg font-bold text-[#1F2937] tracking-tight leading-tight">
                 Ask KRISHVYA
               </h1>
-              <p className="text-xs text-gray-500 truncate">
-                {hasFarm ? (
-                  <span className="inline-flex items-center gap-1 text-emerald-800 font-medium">
-                    <Sprout className="w-3 h-3 text-emerald-600 shrink-0" />
-                    <span>{farm.name}</span>
-                    {farm.crop?.name && <span>• {farm.crop.name}</span>}
-                  </span>
-                ) : (
-                  <span>General Agricultural Scientist</span>
-                )}
+              <p className="text-xs text-[#6B7280] font-medium">
+                Your farm assistant
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {/* Separate Farm Context Pill */}
+            {hasFarm && (
+              <div className="hidden sm:flex flex-col items-end bg-[#EAF4EC]/80 border border-[#D1E7D6] px-3.5 py-1.5 rounded-xl">
+                <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#166534]">
+                  <Sprout className="w-3.5 h-3.5 text-[#166534]" />
+                  <span className="truncate max-w-[200px]">{farm.name}</span>
+                </div>
+                <div className="text-[11px] text-[#6B7280] font-medium">
+                  {[
+                    farm.size ? `${farm.size} ${farm.sizeUnit || 'acres'}` : null,
+                    farm.crop?.name,
+                    farm.crop?.stage || null,
+                  ].filter(Boolean).join(' • ') || 'Active Farm'}
+                </div>
+              </div>
+            )}
+
             {/* New Chat Button */}
             <button
               onClick={handleStartNewChat}
               type="button"
               disabled={isTyping}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-earth-100 text-gray-700 font-bold text-xs border border-earth-300 shadow-2xs transition-all cursor-pointer disabled:opacity-50"
-              title="Start a new conversation thread"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#EAF4EC] text-[#1F2937] hover:text-[#166534] font-semibold text-xs border border-[#E5E7EB] hover:border-[#D1E7D6] shadow-xs transition-all cursor-pointer disabled:opacity-50"
+              title="Start a new conversation"
             >
-              <Plus className="w-3.5 h-3.5 text-krishi-700" />
-              <span>New Chat</span>
+              <Plus className="w-4 h-4 text-[#166534]" />
+              <span className="hidden xs:inline">New Chat</span>
             </button>
           </div>
         </header>
@@ -416,11 +368,28 @@ export const AiAdvisorPage: React.FC = () => {
         {/* CHAT SCROLL AREA                                                          */}
         {/* ========================================================================= */}
         <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 max-w-3xl mx-auto w-full space-y-6">
+          {/* Mobile Farm Context Banner */}
+          {hasFarm && (
+            <div className="sm:hidden flex items-center justify-between bg-[#EAF4EC]/90 border border-[#D1E7D6] px-3.5 py-2 rounded-xl text-xs">
+              <div className="inline-flex items-center gap-1.5 font-bold text-[#166534] truncate">
+                <Sprout className="w-3.5 h-3.5 text-[#166534] shrink-0" />
+                <span className="truncate">{farm.name}</span>
+              </div>
+              <div className="text-[11px] text-[#6B7280] shrink-0 font-medium">
+                {[
+                  farm.size ? `${farm.size} ${farm.sizeUnit || 'acres'}` : null,
+                  farm.crop?.name,
+                  farm.crop?.stage || null,
+                ].filter(Boolean).join(' • ')}
+              </div>
+            </div>
+          )}
+
           {/* Previous Conversation Resumed Indicator */}
           {isResumedChat && messages.length > 0 && (
             <div className="flex justify-center">
-              <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-semibold bg-earth-100/80 text-gray-600 border border-earth-200">
-                <Clock className="w-3 h-3 text-gray-500" />
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-semibold bg-white text-[#6B7280] border border-[#E5E7EB] shadow-2xs">
+                <Clock className="w-3 h-3 text-[#6B7280]" />
                 <span>Continue your farm conversation</span>
               </span>
             </div>
@@ -429,38 +398,38 @@ export const AiAdvisorPage: React.FC = () => {
           {/* HOME VIEW: Shown when no messages yet or conversation is new */}
           {messages.length === 0 && !loadingHistory && (
             <div className="py-8 sm:py-12 space-y-6 text-center animate-in fade-in">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-emerald-50 border border-emerald-200/80 text-emerald-700 shadow-soft">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-[#EAF4EC] border border-[#D1E7D6] text-[#166534] shadow-xs">
                 <Bot className="w-8 h-8" />
               </div>
 
               <div className="space-y-1.5 max-w-md mx-auto">
-                <h2 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
+                <h2 className="text-2xl sm:text-3xl font-bold text-[#1F2937] tracking-tight">
                   👋 Hi, {realUserName}
                 </h2>
-                <p className="text-sm sm:text-base text-gray-600 font-medium">
+                <p className="text-sm sm:text-base text-[#6B7280] font-medium">
                   How can I help with your farm?
                 </p>
               </div>
 
               {/* Farm summary pill if available */}
               {hasFarm && (
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-white text-gray-700 border border-earth-200 shadow-2xs">
-                  <MapPin className="w-3.5 h-3.5 text-krishi-700 shrink-0" />
-                  <span>{farm.location?.address || farm.location?.district || 'Your Farm'}</span>
-                  {farm.crop?.name && (
-                    <>
-                      <span className="text-gray-300">•</span>
-                      <span>
-                        {farm.crop.name} ({farm.crop.stage || 'Active'})
-                      </span>
-                    </>
-                  )}
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-white text-[#1F2937] border border-[#E5E7EB] shadow-xs">
+                  <Sprout className="w-3.5 h-3.5 text-[#166534] shrink-0" />
+                  <span className="font-bold text-[#166534]">{farm.name}</span>
+                  <span className="text-[#E5E7EB]">•</span>
+                  <span className="text-[#6B7280]">
+                    {[
+                      farm.size ? `${farm.size} ${farm.sizeUnit || 'acres'}` : null,
+                      farm.crop?.name,
+                      farm.crop?.stage || null,
+                    ].filter(Boolean).join(' • ')}
+                  </span>
                 </div>
               )}
 
-              {/* 3 Dynamic Suggested Questions */}
-              <div className="pt-2 space-y-2 max-w-lg mx-auto text-left">
-                <p className="text-xs font-bold uppercase tracking-wider text-gray-400 px-1 text-center">
+              {/* 5 Dynamic Suggested Questions */}
+              <div className="pt-2 space-y-2.5 max-w-lg mx-auto text-left">
+                <p className="text-xs font-bold uppercase tracking-wider text-[#6B7280] px-1 text-center">
                   Suggested Questions
                 </p>
                 <div className="space-y-2">
@@ -470,10 +439,10 @@ export const AiAdvisorPage: React.FC = () => {
                       type="button"
                       onClick={() => handleSend(q)}
                       disabled={isTyping}
-                      className="w-full text-left p-3.5 rounded-2xl bg-white hover:bg-emerald-50/60 border border-earth-200 hover:border-emerald-300 text-gray-800 hover:text-emerald-950 font-medium text-xs sm:text-sm transition-all shadow-xs flex items-center justify-between group cursor-pointer"
+                      className="w-full text-left p-3.5 rounded-2xl bg-white hover:bg-[#EAF4EC] border border-[#E5E7EB] hover:border-[#D1E7D6] text-[#1F2937] font-medium text-xs sm:text-sm transition-all shadow-xs flex items-center justify-between group cursor-pointer"
                     >
                       <span className="pr-2 leading-snug">{q}</span>
-                      <Sparkles className="w-4 h-4 text-gray-400 group-hover:text-emerald-600 shrink-0" />
+                      <Sparkles className="w-4 h-4 text-[#6B7280] group-hover:text-[#166534] shrink-0 transition-colors" />
                     </button>
                   ))}
                 </div>
@@ -482,7 +451,7 @@ export const AiAdvisorPage: React.FC = () => {
           )}
 
           {/* CHAT MESSAGES STREAM */}
-          <div className="space-y-4">
+          <div className="space-y-5">
             {messages.map((msg) => {
               const isUser = msg.role === 'user';
               return (
@@ -492,23 +461,27 @@ export const AiAdvisorPage: React.FC = () => {
                 >
                   {/* AI Avatar */}
                   {!isUser && (
-                    <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-1 shadow-2xs">
+                    <div className="w-8 h-8 rounded-xl bg-[#166534] text-white flex items-center justify-center shrink-0 mt-1 shadow-xs">
                       <Bot className="w-4 h-4" />
                     </div>
                   )}
 
                   {/* Message Bubble */}
                   <div
-                    className={`max-w-[85%] sm:max-w-[75%] rounded-3xl p-4 text-sm leading-relaxed ${
+                    className={`max-w-[88%] sm:max-w-[80%] rounded-2xl p-4 sm:p-5 text-sm leading-relaxed ${
                       isUser
-                        ? 'bg-krishi-700 text-white rounded-tr-xs shadow-soft'
-                        : 'bg-white text-gray-900 border border-earth-200 rounded-tl-xs shadow-soft whitespace-pre-wrap'
+                        ? 'bg-[#166534] text-white rounded-tr-xs shadow-xs'
+                        : 'bg-[#EAF4EC] text-[#1F2937] border border-[#D1E7D6] rounded-tl-xs shadow-xs'
                     }`}
                   >
-                    <div>{msg.text}</div>
+                    {isUser ? (
+                      <div className="whitespace-pre-wrap">{msg.text}</div>
+                    ) : (
+                      <FormattedMarkdown content={msg.text} />
+                    )}
                     <div
-                      className={`text-[10px] mt-1.5 flex items-center gap-1 ${
-                        isUser ? 'text-krishi-100 justify-end' : 'text-gray-400 justify-start'
+                      className={`text-[10px] mt-2 flex items-center gap-1 font-medium ${
+                        isUser ? 'text-emerald-100/80 justify-end' : 'text-[#6B7280] justify-start'
                       }`}
                     >
                       <span>{msg.timestamp}</span>
@@ -517,7 +490,7 @@ export const AiAdvisorPage: React.FC = () => {
 
                   {/* User Avatar */}
                   {isUser && (
-                    <div className="w-8 h-8 rounded-xl bg-earth-200 text-earth-800 flex items-center justify-center shrink-0 mt-1 font-bold text-xs">
+                    <div className="w-8 h-8 rounded-xl bg-[#EAF4EC] text-[#166534] border border-[#D1E7D6] flex items-center justify-center shrink-0 mt-1 font-bold text-xs shadow-2xs">
                       {realUserName.charAt(0).toUpperCase()}
                     </div>
                   )}
@@ -528,12 +501,12 @@ export const AiAdvisorPage: React.FC = () => {
             {/* AI Thinking Indicator */}
             {isTyping && (
               <div className="flex gap-3 items-start justify-start animate-in fade-in">
-                <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-1 shadow-2xs">
+                <div className="w-8 h-8 rounded-xl bg-[#166534] text-white flex items-center justify-center shrink-0 mt-1 shadow-xs">
                   <Bot className="w-4 h-4" />
                 </div>
-                <div className="bg-white text-emerald-800 border border-emerald-200/80 rounded-3xl rounded-tl-xs px-4 py-3 text-xs sm:text-sm font-semibold shadow-soft flex items-center gap-2">
-                  <Sprout className="w-4 h-4 animate-spin text-emerald-600" />
-                  <span>🌱 Thinking...</span>
+                <div className="bg-[#EAF4EC] text-[#166534] border border-[#D1E7D6] rounded-2xl rounded-tl-xs px-4 py-3 text-xs sm:text-sm font-semibold shadow-xs flex items-center gap-2">
+                  <Sprout className="w-4 h-4 animate-spin text-[#166534]" />
+                  <span>Thinking...</span>
                 </div>
               </div>
             )}
@@ -543,29 +516,30 @@ export const AiAdvisorPage: React.FC = () => {
         </main>
 
         {/* ========================================================================= */}
-        {/* BOTTOM INPUT BAR: Clean, Responsive, with Mic & Send Controls             */}
+        {/* BOTTOM INPUT BAR: Accessible Mic & High-Contrast Send Button              */}
         {/* ========================================================================= */}
-        <div className="bg-white border-t border-earth-200/80 px-4 sm:px-6 lg:px-8 py-3.5 sticky bottom-0 z-10 shrink-0">
+        <div className="bg-white border-t border-[#E5E7EB] px-4 sm:px-6 lg:px-8 py-3.5 sticky bottom-0 z-10 shrink-0">
           <div className="max-w-3xl mx-auto">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSend();
               }}
-              className="flex items-center gap-2 bg-[#FAF9F6] p-1.5 sm:p-2 rounded-2xl border border-earth-300 focus-within:border-emerald-600 focus-within:bg-white transition-all shadow-xs"
+              className="flex items-center gap-2 bg-[#F8F8F4] p-1.5 sm:p-2 rounded-2xl border border-[#E5E7EB] focus-within:border-[#166534] focus-within:bg-white transition-all shadow-xs"
             >
-              {/* Mic Voice Button */}
+              {/* Mic Voice Button (min 44px for farmer accessibility) */}
               <button
                 type="button"
                 onClick={handleToggleVoice}
-                className={`p-2.5 rounded-xl transition-all cursor-pointer ${
+                className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0 ${
                   isListening
-                    ? 'bg-red-500 text-white animate-pulse shadow-md'
-                    : 'bg-white hover:bg-emerald-50 text-krishi-700 border border-earth-200 shadow-2xs'
+                    ? 'bg-[#DC2626] text-white animate-pulse shadow-md ring-4 ring-red-100'
+                    : 'bg-[#EAF4EC] hover:bg-[#d8edd9] text-[#166534] border border-[#D1E7D6] shadow-2xs'
                 }`}
-                title={isListening ? 'Stop listening' : 'Tap to speak'}
+                title={isListening ? 'Stop listening' : 'Tap to speak (Voice input)'}
+                aria-label={isListening ? 'Stop listening' : 'Tap to speak'}
               >
-                {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
               </button>
 
               {/* Text Input */}
@@ -580,17 +554,18 @@ export const AiAdvisorPage: React.FC = () => {
                     ? 'Listening... Speak now...'
                     : 'Ask anything about your crops, soil, weather, irrigation...'
                 }
-                className="flex-1 py-2 px-2 text-xs sm:text-sm bg-transparent text-gray-900 focus:outline-none placeholder-gray-400 font-medium min-w-0"
+                className="flex-1 py-2 px-3 text-xs sm:text-sm bg-transparent text-[#1F2937] focus:outline-none placeholder-[#6B7280] font-medium min-w-0"
               />
 
               {/* Send Button */}
               <button
                 type="submit"
                 disabled={!inputQuery.trim() || isTyping}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-krishi-700 hover:bg-krishi-800 text-white font-bold text-xs sm:text-sm transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shrink-0"
+                className="inline-flex items-center justify-center gap-1.5 h-11 px-5 rounded-xl bg-[#166534] hover:bg-[#14532D] text-white font-bold text-xs sm:text-sm transition-all shadow-xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shrink-0"
+                title="Send question"
               >
                 <span>Send</span>
-                <Send className="w-3.5 h-3.5" />
+                <Send className="w-4 h-4" />
               </button>
             </form>
           </div>

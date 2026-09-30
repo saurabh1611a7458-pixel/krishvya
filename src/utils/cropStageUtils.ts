@@ -196,19 +196,36 @@ export function parseDateSafe(dateInput: string | Date | undefined | null): Date
     return isNaN(dateInput.getTime()) ? null : dateInput;
   }
 
-  // Check if string is valid
-  const parsed = new Date(dateInput);
-  if (!isNaN(parsed.getTime())) {
-    return parsed;
+  const str = String(dateInput).trim();
+  if (!str) return null;
+
+  // 1. Prioritize DD/MM/YYYY, DD-MM-YYYY, or DD.MM.YYYY (Indian Standard Format)
+  const dmyMatch = str.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1; // 0-indexed
+    const year = parseInt(dmyMatch[3], 10);
+    if (day >= 1 && day <= 31 && month >= 0 && month <= 11 && year >= 1900 && year <= 2100) {
+      const d = new Date(year, month, day);
+      if (!isNaN(d.getTime())) return d;
+    }
   }
 
-  // Try parsing dd Month yyyy (e.g. "15 June 2024")
-  const parts = String(dateInput).trim().split(/[\s-]+/);
-  if (parts.length === 3) {
-    const day = parseInt(parts[0], 10);
-    const monthStr = parts[1].toLowerCase();
-    const year = parseInt(parts[2], 10);
+  // 2. Check for YYYY-MM-DD or YYYY/MM/DD (ISO standard format)
+  const ymdMatch = str.match(/^(\d{4})[/.-](\d{1,2})[/.-](\d{1,2})/);
+  if (ymdMatch) {
+    const year = parseInt(ymdMatch[1], 10);
+    const month = parseInt(ymdMatch[2], 10) - 1;
+    const day = parseInt(ymdMatch[3], 10);
+    if (day >= 1 && day <= 31 && month >= 0 && month <= 11) {
+      const d = new Date(year, month, day);
+      if (!isNaN(d.getTime())) return d;
+    }
+  }
 
+  // 3. Try parsing text month format: "16 September 2026", "16-Sep-2026", "Sep 16, 2026"
+  const textParts = str.split(/[\s,.-]+/);
+  if (textParts.length >= 3) {
     const monthMap: Record<string, number> = {
       jan: 0, january: 0,
       feb: 1, february: 1,
@@ -224,10 +241,29 @@ export function parseDateSafe(dateInput: string | Date | undefined | null): Date
       dec: 11, december: 11,
     };
 
-    if (!isNaN(day) && monthMap[monthStr] !== undefined && !isNaN(year)) {
-      const d = new Date(year, monthMap[monthStr], day);
+    // Case A: DD Month YYYY
+    const dayA = parseInt(textParts[0], 10);
+    const mStrA = textParts[1].toLowerCase();
+    const yearA = parseInt(textParts[2], 10);
+    if (!isNaN(dayA) && monthMap[mStrA] !== undefined && !isNaN(yearA)) {
+      const d = new Date(yearA, monthMap[mStrA], dayA);
       if (!isNaN(d.getTime())) return d;
     }
+
+    // Case B: Month DD YYYY
+    const mStrB = textParts[0].toLowerCase();
+    const dayB = parseInt(textParts[1], 10);
+    const yearB = parseInt(textParts[2], 10);
+    if (monthMap[mStrB] !== undefined && !isNaN(dayB) && !isNaN(yearB)) {
+      const d = new Date(yearB, monthMap[mStrB], dayB);
+      if (!isNaN(d.getTime())) return d;
+    }
+  }
+
+  // 4. Standard Date fallback for ISO timestamps (e.g. 2026-09-16T00:00:00.000Z)
+  const fallback = new Date(str);
+  if (!isNaN(fallback.getTime())) {
+    return fallback;
   }
 
   return null;
@@ -265,8 +301,23 @@ export function calculateDynamicCropStage(
   }
 
   const today = new Date();
-  const diffTime = today.getTime() - sowingDate.getTime();
-  const daysSinceSowing = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+  // Safe comparison with end-of-day tolerance to prevent timezone offset false-positives
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+
+  if (sowingDate.getTime() > endOfToday.getTime()) {
+    return {
+      stage: 'Future Sowing Date',
+      daysSinceSowing: 0,
+      totalDurationDays: 100,
+      progressPercent: 0,
+      description: 'Sowing date is set in the future. Please update to a current or past date.',
+      status: 'no_sowing_date',
+    };
+  }
+
+  const diffTime = Math.max(0, today.getTime() - sowingDate.getTime());
+  const daysSinceSowing = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
   // Identify matching cycle definition
   const normalizedCrop = cropName.toLowerCase().trim();

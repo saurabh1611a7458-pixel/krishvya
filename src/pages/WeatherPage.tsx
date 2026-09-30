@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Sidebar } from '../components/common/Sidebar';
 import { MobileBottomNav } from '../components/common/MobileBottomNav';
 import { Card } from '../components/common/Card';
@@ -29,16 +30,11 @@ import {
   VolumeX,
   Loader2,
   Sprout,
-  Calendar,
-  Clock,
-  ArrowUpRight,
+  ArrowRight,
   Building2,
   Home,
   Flame,
   Snowflake,
-  ShieldAlert,
-  Leaf,
-  Microscope,
 } from 'lucide-react';
 
 interface LiveWeatherState {
@@ -154,27 +150,6 @@ function renderAlertIcon(type: ActiveWeatherAlert['type']) {
       return <Snowflake className="w-5 h-5 text-cyan-600 shrink-0" />;
     default:
       return <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />;
-  }
-}
-
-function renderInsightIcon(iconType: AgriInsight['iconType']) {
-  switch (iconType) {
-    case 'irrigation':
-      return <Droplets className="w-4 h-4 text-sky-600 shrink-0" />;
-    case 'rain':
-      return <CloudRain className="w-4 h-4 text-blue-600 shrink-0" />;
-    case 'wind':
-      return <Wind className="w-4 h-4 text-teal-600 shrink-0" />;
-    case 'spray':
-      return <Sprout className="w-4 h-4 text-emerald-600 shrink-0" />;
-    case 'crop':
-      return <Leaf className="w-4 h-4 text-krishi-700 shrink-0" />;
-    case 'drainage':
-      return <ShieldAlert className="w-4 h-4 text-purple-600 shrink-0" />;
-    case 'fungal':
-      return <Microscope className="w-4 h-4 text-amber-600 shrink-0" />;
-    default:
-      return <Leaf className="w-4 h-4 text-krishi-700 shrink-0" />;
   }
 }
 
@@ -316,7 +291,7 @@ function generateFarmWeatherInsights(
       title: 'Field Alert: Drainage Check Required',
       iconType: 'drainage',
       badge: 'Drainage Alert',
-      badgeColor: 'bg-purple-50 text-purple-800 border-purple-200',
+      badgeColor: 'bg-blue-50 text-blue-800 border-blue-200',
       description: `Heavy rainfall expected (up to ${maxRain7Days}%). Standing water in low-lying plots causes root asphyxiation and collar rot.`,
       actionableStep: 'Clear drainage furrows and ensure field outlets are free of debris.',
     });
@@ -414,6 +389,7 @@ function evaluateWeatherAlerts(weather: LiveWeatherState | null): ActiveWeatherA
 }
 
 export const WeatherPage: React.FC = () => {
+  const navigate = useNavigate();
   const { farm, farms, selectFarm } = useFarm();
   const { language } = useLanguage();
 
@@ -660,6 +636,10 @@ export const WeatherPage: React.FC = () => {
 
   const activeAlerts = evaluateWeatherAlerts(weatherData);
   const farmInsights = generateFarmWeatherInsights(weatherData, farm.crop);
+  const irrigationInsight = farmInsights.find((i) => i.category === 'irrigation');
+  const sprayInsight = farmInsights.find((i) => i.iconType === 'spray' || i.iconType === 'wind');
+  const cropInsight = farmInsights.find((i) => i.category === 'crop');
+  const drainageOrFungalAlert = farmInsights.find((i) => i.category === 'alert');
 
   // Calculate 7-day temperature extremes for scale bar
   const weekMinTemp = weatherData?.forecast7Days?.length
@@ -703,7 +683,8 @@ export const WeatherPage: React.FC = () => {
                   )}
                 </div>
                 <p className="text-xs text-gray-500 hidden sm:block mt-0.5 font-medium">
-                  Live satellite telemetry & Open-Meteo radar • Calibrated for precision farming
+                  Will it rain and is it safe to spray today? Live rain forecast & advisory for{' '}
+                  <strong className="text-gray-800">{activeLocation?.label || farm.name || 'your farm'}</strong>
                 </p>
               </div>
 
@@ -990,100 +971,79 @@ export const WeatherPage: React.FC = () => {
               {/* 1. CURRENT WEATHER HERO & 2. RAIN PROBABILITY / PRIMARY METRICS           */}
               {/* ========================================================================= */}
               <div className="bg-white rounded-3xl border border-earth-200/90 shadow-soft p-6 sm:p-8 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-krishi-500/10 via-amber-200/10 to-transparent rounded-full blur-3xl pointer-events-none -mr-28 -mt-28" />
-
-                <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-                  {/* Left Column: Location, Big Temp, Condition, Feels Like */}
-                  <div className="flex-1 min-w-0 space-y-4">
-                    {/* Location Badge & Farm Meta */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-earth-100/80 text-gray-800 border border-earth-200">
-                        <MapPin className="w-3.5 h-3.5 text-krishi-700" />
-                        <span className="truncate max-w-[280px] sm:max-w-md">{activeLocation?.label}</span>
-                      </span>
-                      {activeLocation?.isFarm && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                          <Sprout className="w-3 h-3 text-emerald-600" />
-                          <span>{farm.crop?.name ? `Crop: ${farm.crop.name}` : farm.name}</span>
-                        </span>
-                      )}
+                <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6 sm:gap-8">
+                  {/* Left Column: Title, Location, Big Temp & Condition */}
+                  <div className="flex-1 min-w-0 space-y-3 sm:space-y-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl sm:text-2xl">🌦</span>
+                        <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
+                          Weather Today
+                        </h2>
+                      </div>
+                      <p className="text-sm sm:text-base font-bold text-gray-700 mt-1 truncate">
+                        {activeLocation?.label || farm.location?.address || farm.location?.district || farm.name || 'Your Farm'}
+                      </p>
                     </div>
 
                     {/* Primary Weather Display */}
-                    <div className="flex items-center gap-5 sm:gap-7">
-                      <div className="p-3.5 sm:p-4 bg-gradient-to-b from-earth-50 to-white rounded-3xl border border-earth-200/80 shadow-xs shrink-0 flex items-center justify-center">
+                    <div className="flex items-center gap-5 sm:gap-6 pt-1">
+                      <div className="p-3.5 sm:p-4 bg-earth-50 rounded-2xl border border-earth-200/80 shadow-2xs shrink-0 flex items-center justify-center">
                         {getWeatherIcon(weatherData.icon, weatherData.condition)}
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-baseline">
-                          <span className="text-6xl sm:text-7xl font-black text-gray-900 tracking-tight leading-none">
-                            {weatherData.temperature}°
-                          </span>
-                          <span className="text-2xl sm:text-3xl font-bold text-gray-400 ml-1">C</span>
+                        <div className="text-5xl sm:text-6xl font-black text-gray-900 tracking-tight leading-none">
+                          {weatherData.temperature}°C
                         </div>
-                        <div className="mt-1 flex items-center gap-2 flex-wrap">
-                          <p className="text-base sm:text-lg font-bold text-gray-800">
+                        <div className="mt-2 flex items-center gap-2 flex-wrap">
+                          <p className="text-lg sm:text-xl font-bold text-gray-800">
                             {weatherData.condition}
                           </p>
                           <span className="text-xs text-gray-400">•</span>
                           <p className="text-xs sm:text-sm text-gray-500 font-medium">
-                            Feels like <strong className="text-gray-700 font-semibold">{weatherData.apparentTemperature}°C</strong>
+                            Feels like {weatherData.apparentTemperature}°C
                           </p>
                         </div>
                       </div>
                     </div>
-
-                    {/* Advisory & Updated Timestamp */}
-                    <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-earth-100">
-                      <p className="text-xs text-krishi-900 font-medium flex items-center gap-1.5">
-                        <Leaf className="w-3.5 h-3.5 text-krishi-700 shrink-0" />
-                        <span className="truncate">{weatherData.advice}</span>
-                      </p>
-                      <span className="text-[11px] text-gray-400 font-medium shrink-0">
-                        Updated at {weatherData.lastUpdated}
-                      </span>
-                    </div>
                   </div>
 
-                  {/* Right Column: 2. Core Weather Metrics (Rain Chance, Humidity, Wind) */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto lg:min-w-[360px]">
-                    {/* Rain Probability Card */}
-                    <div className="p-4 rounded-2xl bg-blue-50/80 border border-blue-200/80 shadow-xs flex flex-col justify-between">
-                      <div className="flex items-center justify-between text-blue-700 text-xs font-bold uppercase tracking-wider mb-2">
-                        <span className="flex items-center gap-1.5">
-                          <CloudRain className="w-4 h-4 text-blue-600" />
-                          Rain Chance
-                        </span>
-                        <span className="text-[10px] bg-blue-100 px-1.5 py-0.5 rounded-full font-bold">24h</span>
+                  {/* Right Column: 3 Primary Metrics (Rain, Humidity, Wind) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto lg:min-w-[420px]">
+                    {/* 🌧 Rain % */}
+                    <div className="p-4 rounded-2xl bg-blue-50/90 border border-blue-200/90 shadow-2xs flex flex-col justify-between">
+                      <div className="flex items-center gap-1.5 text-blue-700 text-xs font-bold uppercase tracking-wider mb-2">
+                        <span className="text-base">🌧</span>
+                        <span>Rain</span>
                       </div>
-                      <p className="text-2xl sm:text-3xl font-black text-blue-950">{weatherData.rainProbability24h}%</p>
-                      <p className="text-[11px] text-blue-700 font-medium mt-1">
-                        {weatherData.forecast7Days?.[1]?.rainProbability !== undefined
-                          ? `Tomorrow: ${weatherData.forecast7Days[1].rainProbability}%`
-                          : 'Next 24h outlook'}
+                      <p className="text-2xl sm:text-3xl font-black text-blue-950">
+                        {weatherData.rainProbability24h}% <span className="text-sm font-bold text-blue-800">Rain</span>
                       </p>
+                      <p className="text-[11px] text-blue-700 font-medium mt-1">24h probability</p>
                     </div>
 
-                    {/* Humidity */}
-                    <div className="p-4 rounded-2xl bg-earth-50/80 border border-earth-200/80 shadow-xs flex flex-col justify-between">
-                      <div className="flex items-center gap-1.5 text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">
-                        <Droplets className="w-4 h-4 text-sky-600" />
+                    {/* 💧 Humidity */}
+                    <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200/80 shadow-2xs flex flex-col justify-between">
+                      <div className="flex items-center gap-1.5 text-emerald-800 text-xs font-bold uppercase tracking-wider mb-2">
+                        <span className="text-base">💧</span>
                         <span>Humidity</span>
                       </div>
-                      <p className="text-2xl sm:text-3xl font-black text-gray-900">{weatherData.humidity}%</p>
-                      <p className="text-[11px] text-gray-500 font-medium mt-1">Relative humidity</p>
+                      <p className="text-2xl sm:text-3xl font-black text-gray-900">
+                        {weatherData.humidity}% <span className="text-sm font-bold text-emerald-700">Humidity</span>
+                      </p>
+                      <p className="text-[11px] text-emerald-800 font-medium mt-1">Relative moisture</p>
                     </div>
 
-                    {/* Wind Speed */}
-                    <div className="p-4 rounded-2xl bg-earth-50/80 border border-earth-200/80 shadow-xs flex flex-col justify-between">
-                      <div className="flex items-center gap-1.5 text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">
-                        <Wind className="w-4 h-4 text-teal-600" />
+                    {/* 💨 Wind */}
+                    <div className="p-4 rounded-2xl bg-teal-50/80 border border-teal-200/80 shadow-2xs flex flex-col justify-between">
+                      <div className="flex items-center gap-1.5 text-teal-800 text-xs font-bold uppercase tracking-wider mb-2">
+                        <span className="text-base">💨</span>
                         <span>Wind</span>
                       </div>
                       <p className="text-2xl sm:text-3xl font-black text-gray-900">
-                        {weatherData.windSpeedKmh} <span className="text-xs font-semibold text-gray-500">km/h</span>
+                        {weatherData.windSpeedKmh} <span className="text-sm font-bold text-teal-700">km/h Wind</span>
                       </p>
-                      <p className="text-[11px] text-gray-500 font-medium mt-1">Sustained breeze</p>
+                      <p className="text-[11px] text-teal-800 font-medium mt-1">Sustained breeze</p>
                     </div>
                   </div>
                 </div>
@@ -1092,58 +1052,129 @@ export const WeatherPage: React.FC = () => {
               {/* ========================================================================= */}
               {/* 3. FARM-RELEVANT INSIGHT / ACTION                                         */}
               {/* ========================================================================= */}
-              <Card className="p-5 sm:p-6 bg-white border border-earth-200 shadow-soft">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1 rounded-md bg-krishi-50 text-krishi-700">
-                      <Sprout className="w-4 h-4" />
+              <div className="space-y-6">
+                {/* TODAY'S FARM ACTION */}
+                <div className="bg-[#EAF4EC] border border-[#166534]/20 rounded-3xl p-6 sm:p-7 shadow-xs">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm font-black text-[#166534] uppercase tracking-wider flex items-center gap-2">
+                      <span>🌱</span> TODAY'S FARM ACTION
+                    </span>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
+                    {activeAlerts.length > 0
+                      ? activeAlerts[0].title
+                      : drainageOrFungalAlert
+                      ? drainageOrFungalAlert.title
+                      : weatherData.rainProbability24h >= 60
+                      ? 'Rain Expected Today'
+                      : weatherData.temperature >= 38
+                      ? 'Heatwave Advisory'
+                      : 'No urgent action.'}
+                  </h3>
+                  <p className="text-sm sm:text-base text-gray-700 font-medium mt-2 leading-relaxed">
+                    {activeAlerts.length > 0
+                      ? activeAlerts[0].action
+                      : drainageOrFungalAlert?.actionableStep
+                      ? drainageOrFungalAlert.actionableStep
+                      : weatherData.rainProbability24h >= 60
+                      ? 'Avoid irrigation and suspend chemical sprays to prevent nutrient runoff.'
+                      : weatherData.temperature >= 38
+                      ? 'Provide light morning irrigation before peak heat and avoid noon field work.'
+                      : (farm.soil?.moisturePercentage || weatherData.soilMoisturePercentage) < 35
+                      ? 'Soil moisture is dry. Check soil before watering.'
+                      : 'Check soil moisture before irrigation.'}
+                  </p>
+                </div>
+
+                {/* WHAT THIS WEATHER MEANS */}
+                <div className="bg-white rounded-3xl border border-earth-200/90 shadow-soft p-6 sm:p-7">
+                  <div className="mb-5">
+                    <h3 className="text-base sm:text-lg font-black text-gray-900 tracking-tight flex items-center gap-2 uppercase">
+                      <span>🌱</span> WHAT THIS WEATHER MEANS
+                    </h3>
+                    <p className="text-xs text-gray-500 font-medium mt-0.5">
+                      Operational guidance tailored to your live farm telemetry
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* 💧 Watering Card */}
+                    <div className="p-5 rounded-2xl bg-earth-50/70 border border-earth-200/80 flex flex-col justify-between hover:border-blue-300 transition-colors">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2.5">
+                          <span className="text-base">💧</span>
+                          <h4 className="font-extrabold text-sm sm:text-base text-gray-900">Watering</h4>
+                        </div>
+                        <p className="text-xs sm:text-sm text-gray-600 font-medium leading-relaxed">
+                          {irrigationInsight?.description || (weatherData.rainProbability24h >= 50
+                            ? 'Rain likely today. Delay irrigation to prevent waterlogging.'
+                            : (farm.soil?.moisturePercentage || weatherData.soilMoisturePercentage) < 35
+                            ? 'Soil moisture is low. Recommended to irrigate today.'
+                            : 'Check soil before watering.')}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate('/soil')}
+                        className="mt-4 w-full py-2.5 px-3 rounded-xl bg-white hover:bg-blue-50 text-blue-700 font-bold text-xs border border-blue-200/80 transition-all flex items-center justify-center gap-1.5 shadow-2xs group cursor-pointer"
+                      >
+                        <span>Check Soil</span>
+                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                      </button>
                     </div>
-                    <div>
-                      <h3 className="font-extrabold text-gray-900 text-sm sm:text-base tracking-tight">
-                        Farm Weather Insights & Actions
-                      </h3>
-                      <p className="text-[11px] text-gray-500 font-medium">
-                        What this weather means for {farm.name || 'your farm'} and actions to take
-                      </p>
+
+                    {/* 🌿 Crop Card */}
+                    <div className="p-5 rounded-2xl bg-earth-50/70 border border-earth-200/80 flex flex-col justify-between hover:border-emerald-300 transition-colors">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2.5">
+                          <span className="text-base">🌿</span>
+                          <h4 className="font-extrabold text-sm sm:text-base text-gray-900">Crop</h4>
+                        </div>
+                        <p className="text-xs sm:text-sm text-gray-600 font-medium leading-relaxed">
+                          {cropInsight?.description || (weatherData.temperature >= 36
+                            ? 'High temperatures. Monitor crop canopy for moisture stress.'
+                            : weatherData.humidity >= 82
+                            ? 'High humidity watch. Inspect lower leaves for fungal spots.'
+                            : 'Good conditions for routine monitoring.')}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate('/crop-health')}
+                        className="mt-4 w-full py-2.5 px-3 rounded-xl bg-white hover:bg-krishi-50 text-krishi-800 font-bold text-xs border border-krishi-200/80 transition-all flex items-center justify-center gap-1.5 shadow-2xs group cursor-pointer"
+                      >
+                        <span>View Crop</span>
+                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                      </button>
+                    </div>
+
+                    {/* 🧪 Spraying Card */}
+                    <div className="p-5 rounded-2xl bg-earth-50/70 border border-earth-200/80 flex flex-col justify-between hover:border-amber-300 transition-colors">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2.5">
+                          <span className="text-base">🧪</span>
+                          <h4 className="font-extrabold text-sm sm:text-base text-gray-900">Spraying</h4>
+                        </div>
+                        <p className="text-xs sm:text-sm text-gray-600 font-medium leading-relaxed">
+                          {sprayInsight?.description || (weatherData.windSpeedKmh >= 15
+                            ? 'Wind speeds >15 km/h. Avoid foliar spray to prevent drift.'
+                            : weatherData.rainProbability24h >= 40
+                            ? 'Rain expected. Suspend spray until leaves stay dry.'
+                            : 'Check wind/rain before spraying.')}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate('/ai-advisor')}
+                        className="mt-4 w-full py-2.5 px-3 rounded-xl bg-white hover:bg-krishi-50 text-krishi-800 font-bold text-xs border border-krishi-200/80 transition-all flex items-center justify-center gap-1.5 shadow-2xs group cursor-pointer"
+                      >
+                        <span>Ask KRISHVYA</span>
+                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                      </button>
                     </div>
                   </div>
-                  <span className="text-[11px] font-bold text-krishi-700 bg-krishi-50 border border-krishi-200 px-2.5 py-0.5 rounded-full">
-                    Grounded Advisory
-                  </span>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {farmInsights.map((insight, idx) => (
-                    <div
-                      key={idx}
-                      className="p-4 rounded-2xl bg-earth-50/60 border border-earth-200/80 hover:border-krishi-300 transition-all flex flex-col justify-between space-y-2.5"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2.5 font-bold text-sm text-gray-900">
-                          <div className="p-1.5 rounded-xl bg-white border border-earth-200 shadow-2xs">
-                            {renderInsightIcon(insight.iconType)}
-                          </div>
-                          <span className="tracking-tight">{insight.title}</span>
-                        </div>
-                        <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${insight.badgeColor}`}>
-                          {insight.badge}
-                        </span>
-                      </div>
-
-                      <p className="text-xs text-gray-600 leading-relaxed font-normal">
-                        {insight.description}
-                      </p>
-
-                      {insight.actionableStep && (
-                        <div className="flex items-start gap-1.5 text-xs text-krishi-900 font-semibold bg-white p-2.5 rounded-xl border border-earth-200/70 shadow-2xs">
-                          <ArrowUpRight className="w-3.5 h-3.5 text-krishi-700 shrink-0 mt-0.5" />
-                          <span>Action: {insight.actionableStep}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </Card>
+              </div>
 
               {/* ========================================================================= */}
               {/* 4. HOURLY FORECAST (Next 24 Hours Strip)                                   */}
@@ -1151,12 +1182,10 @@ export const WeatherPage: React.FC = () => {
               <Card className="p-5 sm:p-6 bg-white border border-earth-200 shadow-soft">
                 <div className="flex items-center justify-between mb-3.5">
                   <div className="flex items-center gap-2">
-                    <div className="p-1 rounded-md bg-krishi-50 text-krishi-700">
-                      <Clock className="w-4 h-4" />
-                    </div>
+                    <span className="text-lg sm:text-xl">🕐</span>
                     <div>
-                      <h3 className="font-extrabold text-gray-900 text-sm sm:text-base tracking-tight">
-                        Hourly Forecast (Next 24 Hours)
+                      <h3 className="font-extrabold text-gray-900 text-sm sm:text-base tracking-tight uppercase">
+                        Hourly Forecast
                       </h3>
                       <p className="text-[11px] text-gray-500 font-medium">Temperature and rain chance progression</p>
                     </div>
@@ -1210,12 +1239,10 @@ export const WeatherPage: React.FC = () => {
               <Card className="p-5 sm:p-6 bg-white border border-earth-200 shadow-soft">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <div className="p-1 rounded-md bg-krishi-50 text-krishi-700">
-                      <Calendar className="w-4 h-4" />
-                    </div>
+                    <span className="text-lg sm:text-xl">📅</span>
                     <div>
-                      <h3 className="font-extrabold text-gray-900 text-sm sm:text-base tracking-tight">
-                        7-Day Forecast Outlook
+                      <h3 className="font-extrabold text-gray-900 text-sm sm:text-base tracking-tight uppercase">
+                        7-Day Forecast
                       </h3>
                       <p className="text-[11px] text-gray-500 font-medium">Daily temperature outlook and precipitation chances</p>
                     </div>
@@ -1287,11 +1314,11 @@ export const WeatherPage: React.FC = () => {
               {/* ========================================================================= */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-extrabold text-gray-900 text-sm sm:text-base tracking-tight flex items-center gap-2">
-                    <ShieldAlert className="w-4 h-4 text-amber-600" />
-                    Weather Hazards & Alerts
+                  <h3 className="font-extrabold text-gray-900 text-sm sm:text-base tracking-tight flex items-center gap-2 uppercase">
+                    <span className="text-base sm:text-lg">🔔</span>
+                    Weather Alerts
                   </h3>
-                  <span className="text-[11px] text-gray-500 font-medium">Real-time radar warning state</span>
+                  <span className="text-[11px] text-gray-500 font-medium">Real-time radar warning status</span>
                 </div>
 
                 {activeAlerts.length > 0 ? (

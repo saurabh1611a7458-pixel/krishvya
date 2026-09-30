@@ -25,7 +25,6 @@ const WhatIfPage = lazy(() => import('../pages/WhatIfPage').then(m => ({ default
 const ReportsPage = lazy(() => import('../pages/ReportsPage').then(m => ({ default: m.ReportsPage })));
 const ExpertDashboardPage = lazy(() => import('../pages/ExpertDashboardPage').then(m => ({ default: m.ExpertDashboardPage })));
 const BricsHubPage = lazy(() => import('../pages/BricsHubPage').then(m => ({ default: m.BricsHubPage })));
-const PlantScannerPage = lazy(() => import('../pages/PlantScannerPage').then(m => ({ default: m.PlantScannerPage })));
 const CropPlannerPage = lazy(() => import('../pages/CropPlannerPage').then(m => ({ default: m.CropPlannerPage })));
 const HistoryPage = lazy(() => import('../pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
 const AdminDashboardPage = lazy(() => import('../pages/AdminDashboardPage').then(m => ({ default: m.AdminDashboardPage })));
@@ -192,11 +191,7 @@ export const AppRoutes: React.FC = () => {
       />
       <Route
         path="/plant-scanner"
-        element={
-          <ProtectedRoute>
-            <PlantScannerPage />
-          </ProtectedRoute>
-        }
+        element={<Navigate to="/disease" replace />}
       />
       <Route
         path="/crop-planner"
@@ -258,6 +253,7 @@ export const AppRoutes: React.FC = () => {
       />
 
       {/* Route Aliases */}
+      <Route path="/farm-history" element={<Navigate to="/history" replace />} />
       <Route path="/soil-health" element={<Navigate to="/soil" replace />} />
       <Route path="/disease-doctor" element={<Navigate to="/disease" replace />} />
       <Route path="/check-plant" element={<Navigate to="/disease" replace />} />

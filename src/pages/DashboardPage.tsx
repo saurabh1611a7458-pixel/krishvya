@@ -199,19 +199,26 @@ export const DashboardPage: React.FC = () => {
             }
           />
 
-          {/* 4 Metric Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            <WeatherCard weather={weatherData || farm.weather} />
-            <CropCard crop={farm.crop} />
-            <SoilCard soil={farm.soil} />
-            <CropHealthCard satellite={farm.satellite} />
-          </div>
-
-          {/* Today's Actionable Priority Action ("What needs my attention today?") */}
+          {/* Today's Actionable Priority Action ("What should I do today?") */}
           <AdviceCard primaryAction={intelligence.primaryAction} />
 
-          {/* Quick Actions (Ask AI, Scan Plant, Check Crop, Improve Soil) */}
+          {/* Quick Actions (Check Plant, Ask KRISHVYA, View Weather, Farm Plan) */}
           <QuickActions />
+
+          {/* Detailed Field Conditions & Vitals */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900">Field Conditions</h3>
+              <span className="text-xs text-gray-400">Live measurements for {farm.name || 'your farm'}</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              <WeatherCard weather={weatherData || farm.weather} />
+              <CropCard crop={farm.crop} />
+              <SoilCard soil={farm.soil} />
+              <CropHealthCard satellite={farm.satellite} />
+            </div>
+          </div>
         </main>
       </div>
 

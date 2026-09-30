@@ -215,7 +215,7 @@ export const FarmHealthCard: React.FC<FarmHealthCardProps> = ({
         <div className="p-3.5 rounded-2xl bg-white border border-earth-200/90 shadow-2xs flex flex-col justify-between space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-gray-500 flex items-center gap-1.5">
-              <CheckSquare className="w-4 h-4 text-purple-600" />
+              <CheckSquare className="w-4 h-4 text-[#166534]" />
               Farm Actions
             </span>
           </div>
@@ -237,7 +237,7 @@ export const FarmHealthCard: React.FC<FarmHealthCardProps> = ({
           </div>
           <Link
             to="/alerts"
-            className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 hover:text-purple-800 pt-1"
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#166534] hover:text-[#14532D] pt-1"
           >
             <span>View Alerts</span>
             <ArrowRight className="w-3 h-3" />

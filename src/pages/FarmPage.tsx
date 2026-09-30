@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { Sidebar } from '../components/common/Sidebar';
 import { MobileBottomNav } from '../components/common/MobileBottomNav';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { useFarm } from '../context/FarmContext';
-import { useLanguage } from '../context/LanguageContext';
 import { RealSatelliteMap } from '../components/satellite/RealSatelliteMap';
 import { LocationSearchInput } from '../components/common/LocationSearchInput';
 import {
@@ -14,7 +14,6 @@ import {
   generateDefaultBoundary,
 } from '../utils/geoUtils';
 import { calculateDynamicCropStage } from '../utils/cropStageUtils';
-import { calculateFarmHealthScore } from '../utils/healthScoreUtils';
 import { api } from '../services/api';
 import { reverseGeocode, searchGlobalLocations } from '../services/geocodingService';
 import { supabaseService } from '../services/supabaseService';
@@ -30,12 +29,14 @@ import {
   CheckCircle2,
   AlertCircle,
   Sprout,
-  Sparkles,
-  User,
   Trash2,
   Activity,
-  BarChart2,
   Clock,
+  Bot,
+  ArrowRight,
+  ChevronDown,
+  CloudSun,
+  Droplets,
 } from 'lucide-react';
 
 export const FarmPage: React.FC = () => {
@@ -52,7 +53,6 @@ export const FarmPage: React.FC = () => {
     isSyncingAuth,
     problemCases,
   } = useFarm();
-  const { t } = useLanguage();
 
   // Selected farm coordinates
   const farmLat = typeof farm.location?.latitude === 'number' ? farm.location.latitude : 0;
@@ -76,6 +76,7 @@ export const FarmPage: React.FC = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [userGpsLocation, setUserGpsLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
 
   // Edit Farm Details Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -331,11 +332,6 @@ export const FarmPage: React.FC = () => {
       farm.crop?.sowingDate
     );
   }, [farm.crop?.name, farm.crop?.variety, farm.crop?.sowingDate]);
-
-  // Dynamic Farm Health Index & Breakdown
-  const healthBreakdown = useMemo(() => {
-    return calculateFarmHealthScore(farm);
-  }, [farm]);
 
   // Handle vertex updates as user drags corners on satellite map
   const handleBoundaryChange = (newBoundary: Array<[number, number]>) => {
@@ -732,110 +728,40 @@ export const FarmPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] flex">
+    <div className="min-h-screen bg-[#F8F8F4] flex">
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0 pb-20 lg:pb-10">
-        {/* Header with dynamic user welcome and multi-user isolation switcher */}
-        <header className="bg-white border-b border-earth-200/80 px-4 sm:px-8 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sticky top-0 z-20">
+        {/* Simple & Clean Header */}
+        <header className="bg-white border-b border-[#E5E7EB] px-4 sm:px-8 py-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sticky top-0 z-20">
           <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Trees className="w-5 h-5 text-krishi-700" />
-              <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
-                {t('myFarm')}
+            <div className="flex items-center gap-2">
+              <Trees className="w-5 h-5 text-[#166534]" />
+              <h1 className="text-lg sm:text-xl font-bold text-[#1F2937] tracking-tight">
+                My Farm
               </h1>
-
-              {/* Dynamic User Welcome Badge - Zero Hardcoded Names */}
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-krishi-50 text-krishi-900 border border-krishi-200">
-                <User className="w-3.5 h-3.5 text-krishi-600" />
-                <span>{user.name ? `Welcome, ${user.name}` : (user.email ? `User: ${user.email}` : 'Authenticated')}</span>
-              </span>
-
               {saveSuccess && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 animate-in fade-in">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  Boundary Saved!
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#EAF4EC] text-[#166534] border border-[#D1E7D6] animate-in fade-in">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#166534]" />
+                  Saved!
                 </span>
               )}
             </div>
-
-            <p className="text-xs text-gray-500 mt-1">
-              Precision space satellite boundary & live telemetry for{' '}
-              <strong className="text-gray-800 font-semibold">{farm.name || 'Your Farm'}</strong>
+            <p className="text-xs text-[#6B7280] mt-0.5">
+              Parcel location, boundary and crop profile
             </p>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-start sm:justify-end">
-            {farms.length > 0 ? (
-              <>
-                {/* GPS Location Button */}
-                <button
-                  onClick={handleAcquireGps}
-                  disabled={isLocating}
-                  type="button"
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                    userGpsLocation
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
-                      : 'bg-earth-100 hover:bg-earth-200 text-gray-700'
-                  }`}
-                  title="Acquire live GPS coordinates"
-                >
-                  <Navigation className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : ''}`} />
-                  <span>{isLocating ? 'Locating...' : userGpsLocation ? '📍 GPS Linked' : '📍 GPS Fix'}</span>
-                </button>
-
-                {/* Edit / Save Boundary Toggle */}
-                {!isEditing ? (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    icon={<Edit className="w-3.5 h-3.5" />}
-                    onClick={() => {
-                      if (workingBoundary.length < 3) {
-                        handleStartAddBoundary();
-                      } else {
-                        setIsEditing(true);
-                      }
-                    }}
-                    className="bg-krishi-700 hover:bg-krishi-800 text-white shadow-xs"
-                  >
-                    {workingBoundary.length >= 3 ? 'Edit Field Boundary' : 'Add Field Boundary'}
-                  </Button>
-                ) : (
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      icon={<X className="w-3.5 h-3.5" />}
-                      onClick={() => {
-                        handleResetBoundary();
-                        setIsEditing(false);
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      icon={<Check className="w-3.5 h-3.5" />}
-                      onClick={handleSaveBoundary}
-                      disabled={isSaving}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs font-bold"
-                    >
-                      {isSaving ? 'Saving...' : 'Save Boundary'}
-                    </Button>
-                  </div>
-                )}
-              </>
-            ) : (
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {farms.length > 0 && (
               <Button
-                variant="primary"
+                variant="outline"
                 size="sm"
-                icon={<Plus className="w-3.5 h-3.5" />}
+                icon={<Plus className="w-3.5 h-3.5 text-[#166534]" />}
                 onClick={() => setIsAddFarmModalOpen(true)}
-                className="bg-krishi-700 hover:bg-krishi-800 text-white shadow-xs font-bold text-xs"
+                className="text-xs font-semibold border-[#E5E7EB] hover:bg-[#EAF4EC] text-[#1F2937]"
               >
-                + Add Your Farm
+                + Add Farm
               </Button>
             )}
           </div>
@@ -844,616 +770,604 @@ export const FarmPage: React.FC = () => {
         <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
           {(isLoading || isSyncingAuth) ? (
             /* Loading State */
-            <div className="flex flex-col items-center justify-center p-12 bg-white rounded-3xl border border-earth-200 text-center min-h-[400px] shadow-soft">
-              <div className="w-12 h-12 border-4 border-krishi-700 border-t-transparent rounded-full animate-spin mb-4" />
-              <h3 className="text-lg font-bold text-gray-900">Loading your farm...</h3>
-              <p className="text-xs text-gray-500 mt-1">Retrieving farm parcels & live satellite telemetry</p>
+            <div className="flex flex-col items-center justify-center p-12 bg-white rounded-3xl border border-[#E5E7EB] text-center min-h-[400px] shadow-xs">
+              <div className="w-10 h-10 border-4 border-[#166534] border-t-transparent rounded-full animate-spin mb-4" />
+              <h3 className="text-base font-bold text-[#1F2937]">Loading your farm...</h3>
+              <p className="text-xs text-[#6B7280] mt-1">Retrieving farm profile and map</p>
             </div>
           ) : farms.length === 0 ? (
-            /* Empty State: Prompt specifically requires: 'No farm added yet' with '+ Add Your Farm' button */
-            <div className="p-8 sm:p-14 bg-white rounded-3xl border border-earth-200 shadow-soft flex flex-col items-center justify-center text-center max-w-xl mx-auto my-12">
-              <div className="w-20 h-20 rounded-3xl bg-krishi-50 border border-krishi-200 flex items-center justify-center mb-5 text-krishi-700 shadow-inner">
-                <Sprout className="w-10 h-10" />
+            /* Empty State */
+            <div className="p-8 sm:p-14 bg-white rounded-3xl border border-[#E5E7EB] shadow-xs flex flex-col items-center justify-center text-center max-w-xl mx-auto my-12">
+              <div className="w-16 h-16 rounded-3xl bg-[#EAF4EC] border border-[#D1E7D6] flex items-center justify-center mb-5 text-[#166534]">
+                <Sprout className="w-8 h-8" />
               </div>
-              <h2 className="text-2xl font-black text-gray-900 tracking-tight mb-2">No farm added yet</h2>
-              <p className="text-sm text-gray-600 mb-6 leading-relaxed">
-                You haven't registered any farm parcel yet. Register your farm to monitor satellite boundaries, NDVI vegetation health, dynamic crop stages, and local weather forecasts.
+              <h2 className="text-xl font-bold text-[#1F2937] tracking-tight mb-2">No farm added yet</h2>
+              <p className="text-xs text-[#6B7280] mb-6 leading-relaxed max-w-sm">
+                Register your farm parcel to view field boundaries, track crop stages, and get personalized farm advice.
               </p>
               <Button
                 variant="primary"
                 size="lg"
-                icon={<Plus className="w-5 h-5" />}
+                icon={<Plus className="w-4 h-4" />}
                 onClick={() => setIsAddFarmModalOpen(true)}
-                className="bg-krishi-700 hover:bg-krishi-800 text-white font-bold shadow-md px-6 py-3"
+                className="bg-[#166534] hover:bg-[#14532D] text-white font-bold shadow-xs px-6 py-2.5 text-xs"
               >
                 + Add Your Farm
               </Button>
             </div>
           ) : (
             <>
-              {/* Multi-Farm Selector Bar */}
-              <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-earth-200 shadow-2xs">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-bold uppercase tracking-wider text-gray-500 pl-1">
-                    Your Farms ({farms.length}):
-                  </span>
+              {/* Multi-Farm Selector Bar (shown when user has > 1 farm) */}
+              {farms.length > 1 && (
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                  <span className="text-xs font-bold text-[#6B7280] shrink-0">Your Farms:</span>
                   {farms.map((f) => {
                     const isSelected = f.id === selectedFarmId;
-                    const fArea =
-                      f.boundaryVertices && f.boundaryVertices.length >= 3
-                        ? calculatePolygonAreaAcres(f.boundaryVertices)
-                        : f.size;
                     return (
                       <button
                         key={f.id}
-                        onClick={() => selectFarm(f.id)}
                         type="button"
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        onClick={() => selectFarm(f.id)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 ${
                           isSelected
-                            ? 'bg-krishi-700 text-white shadow-xs ring-2 ring-krishi-600/30'
-                            : 'bg-earth-100 hover:bg-earth-200 text-gray-700'
+                            ? 'bg-[#166534] text-white shadow-xs'
+                            : 'bg-white hover:bg-[#EAF4EC] text-[#4B5563] border border-[#E5E7EB]'
                         }`}
                       >
                         <Sprout className="w-3.5 h-3.5" />
                         <span>{f.name}</span>
-                        <span className={isSelected ? 'text-krishi-200' : 'text-gray-400'}>
-                          ({fArea} {f.sizeUnit || 'ac'})
-                        </span>
+                        {f.size ? (
+                          <span className={isSelected ? 'text-emerald-100' : 'text-[#6B7280]'}>
+                            ({f.size} {f.sizeUnit || 'ac'})
+                          </span>
+                        ) : null}
                       </button>
                     );
                   })}
                 </div>
+              )}
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  icon={<Plus className="w-3.5 h-3.5" />}
-                  onClick={() => setIsAddFarmModalOpen(true)}
-                  className="text-xs"
-                >
-                  Add New Farm Parcel
-                </Button>
-              </div>
-
-              {/* Main Grid: Fully responsive (Desktop: 7/5 columns, Tablet: 2-col, Mobile: vertical stack) */}
+              {/* Main 2-Column Responsive Layout */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Left Column: Satellite Field Boundary Map */}
-            <div className="lg:col-span-7 space-y-4">
-              <Card className="p-4 sm:p-5 relative">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-                    <h3 className="font-bold text-gray-900 text-sm sm:text-base">
-                      Real Satellite Field Boundary
-                    </h3>
-                  </div>
+                {/* ================================================================= */}
+                {/* LEFT COLUMN: 🌱 Farm Map (GIS & Boundary)                         */}
+                {/* ================================================================= */}
+                <div className="lg:col-span-7 space-y-4">
+                  <Card className="p-4 sm:p-5 relative bg-white border-[#E5E7EB] shadow-xs">
+                    {/* Map Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#166534]"></span>
+                        <h3 className="font-bold text-[#1F2937] text-sm sm:text-base">
+                          🌱 Farm Map
+                        </h3>
+                      </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-krishi-800 bg-krishi-100 px-2.5 py-0.5 rounded-full">
-                      {displayAcreage > 0 ? `${displayAcreage} ${farm.sizeUnit || 'acres'}` : 'Area not set'}
-                    </span>
-                    <span className="text-[11px] font-mono text-gray-500">
-                      {workingBoundary.length >= 3
-                        ? `${workingBoundary.length} Boundary Vertices`
-                        : 'No boundary'}
-                    </span>
-                  </div>
-                </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-[#166534] bg-[#EAF4EC] border border-[#D1E7D6] px-2.5 py-0.5 rounded-full">
+                          {displayAcreage > 0 ? `${displayAcreage} ${farm.sizeUnit || 'acres'}` : 'Area not set'}
+                        </span>
 
-                {/* Notice when location is not set */}
-                {!hasCoordinates && (
-                  <div className="mb-3 p-3 bg-red-50 rounded-xl border border-red-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2 text-xs text-red-900">
-                      <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                      <span>
-                        <strong>📍 Farm location not set.</strong> Please set your farm's GPS coordinates or address.
-                      </span>
-                    </div>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      icon={<MapPin className="w-3.5 h-3.5" />}
-                      onClick={handleOpenEditModal}
-                      className="bg-red-600 hover:bg-red-700 text-white text-xs whitespace-nowrap shadow-2xs self-start sm:self-auto"
-                    >
-                      Set Farm Location
-                    </Button>
-                  </div>
-                )}
-
-                {/* Empty State / Notice when boundary is not added yet */}
-                {hasCoordinates && !hasSavedBoundary && !isEditing && (
-                  <div className="mb-3 p-3 bg-amber-50 rounded-xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2 text-xs text-amber-900">
-                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                      <span>
-                        <strong>Farm boundary not added yet.</strong> Add corners to calculate precision satellite acreage.
-                      </span>
-                    </div>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      icon={<Plus className="w-3.5 h-3.5" />}
-                      onClick={handleStartAddBoundary}
-                      className="bg-amber-600 hover:bg-amber-700 text-white text-xs whitespace-nowrap shadow-2xs self-start sm:self-auto"
-                    >
-                      Add Farm Boundary
-                    </Button>
-                  </div>
-                )}
-
-                {/* Interactive Editing Toolbar (Visible when editing) */}
-                {isEditing && (
-                  <div className="mb-3 p-2.5 bg-amber-50 rounded-xl border border-amber-200 flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <div className="flex items-center gap-2 text-amber-900 font-medium">
-                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
-                      <span>
-                        <strong>Boundary Editor:</strong> Drag corner pins on map to adjust shape
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        icon={<Plus className="w-3 h-3" />}
-                        onClick={handleAddCorner}
-                        className="text-xs py-1"
-                      >
-                        Add Corner
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        icon={<RotateCcw className="w-3 h-3" />}
-                        onClick={handleResetBoundary}
-                        className="text-xs py-1"
-                      >
-                        Reset
-                      </Button>
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        icon={<Check className="w-3 h-3" />}
-                        onClick={handleSaveBoundary}
-                        disabled={isSaving}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-1 shadow-2xs"
-                      >
-                        {isSaving ? 'Saving...' : 'Save Boundary'}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Leaflet Satellite Map Container */}
-                <div className="relative rounded-2xl overflow-hidden border border-earth-300 shadow-inner h-[380px] sm:h-[460px] lg:h-[500px] bg-gray-900">
-                  <RealSatelliteMap
-                    latitude={farmLat}
-                    longitude={farmLon}
-                    fieldBoundary={workingBoundary.length >= 3 ? workingBoundary : undefined}
-                    layerMode="true_color"
-                    cropName={farm.crop?.name || 'Crop Field'}
-                    isEditingBoundary={isEditing}
-                    onBoundaryChange={handleBoundaryChange}
-                    userGpsLocation={userGpsLocation}
-                    showSearch={true}
-                    onSelectLocation={handleSelectLocation}
-                    onMyLocationClick={handleAcquireGps}
-                    isLocatingGps={isLocating}
-                  />
-
-                  {/* High-Res Orbit Pill */}
-                  <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md rounded-lg px-2.5 py-1 text-white text-[11px] font-medium border border-white/10 z-[1000] pointer-events-none flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span>Esri Maxar 0.5m Satellite</span>
-                  </div>
-                </div>
-
-                {/* Boundary Coordinate Information Bar */}
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-600 bg-earth-50 p-3 rounded-xl border border-earth-200/70">
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-krishi-600 shrink-0" />
-                    <span>
-                      Field Centroid:{' '}
-                      <strong>
-                        {hasCoordinates && liveCentroid[0] !== 0
-                          ? `${liveCentroid[0].toFixed(5)}°N, ${liveCentroid[1].toFixed(5)}°E`
-                          : 'Location not set'}
-                      </strong>
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between sm:justify-end gap-2">
-                    <span>
-                      Area: <strong>{displayAcreage > 0 ? `${displayAcreage} ${farm.sizeUnit || 'acres'}` : 'Not set'}</strong>
-                    </span>
-                    <span>•</span>
-                    <span>
-                      Boundary:{' '}
-                      <strong>
-                        {workingBoundary.length >= 3
-                          ? `${workingBoundary.length} GPS vertices`
-                          : 'Not added'}
-                      </strong>
-                    </span>
-                  </div>
-                </div>
-              </Card>
-
-              {/* Dynamic Farm Statistics Card */}
-              <Card className="p-6">
-                <div className="flex items-center justify-between pb-3 border-b border-earth-100 mb-4">
-                  <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                    <BarChart2 className="w-4 h-4 text-krishi-600" />
-                    <span>Farm Statistics & Telemetry</span>
-                  </h3>
-                  <span className="text-[11px] font-semibold text-gray-500 bg-earth-100 px-2 py-0.5 rounded-full">
-                    Live Farm Metrics
-                  </span>
-                </div>
-
-                {displayAcreage > 0 || cropStageInfo.status === 'valid' || workingBoundary.length >= 3 || activeFarmCases.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="p-3 bg-earth-50/70 rounded-xl border border-earth-200/70">
-                      <span className="text-[10px] text-gray-500 font-bold uppercase block">Field Area</span>
-                      <strong className="text-base font-black text-gray-900 block mt-0.5">
-                        {displayAcreage > 0 ? `${displayAcreage} ${farm.sizeUnit || 'ac'}` : '—'}
-                      </strong>
-                      <span className="text-[10px] text-gray-400">
-                        {workingBoundary.length >= 3 ? 'Polygon mapped' : (displayAcreage > 0 ? 'Saved area' : 'Not specified')}
-                      </span>
+                        {/* Farmer-Friendly Location Button */}
+                        <button
+                          onClick={handleAcquireGps}
+                          disabled={isLocating}
+                          type="button"
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold transition-all shadow-2xs cursor-pointer ${
+                            userGpsLocation
+                              ? 'bg-[#EAF4EC] text-[#166534] border border-[#D1E7D6]'
+                              : 'bg-white hover:bg-[#EAF4EC] text-[#1F2937] border border-[#E5E7EB]'
+                          }`}
+                          title="Use your phone or computer GPS location"
+                        >
+                          <Navigation className={`w-3.5 h-3.5 text-[#166534] ${isLocating ? 'animate-spin' : ''}`} />
+                          <span>{isLocating ? 'Locating...' : 'Use My Location'}</span>
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="p-3 bg-earth-50/70 rounded-xl border border-earth-200/70">
-                      <span className="text-[10px] text-gray-500 font-bold uppercase block">Crop Cycle</span>
-                      <strong className="text-base font-black text-krishi-800 block mt-0.5">
-                        {cropStageInfo.status === 'valid' ? `${cropStageInfo.daysSinceSowing} DAS` : '—'}
-                      </strong>
-                      <span className="text-[10px] text-gray-400">
-                        {cropStageInfo.status === 'valid' ? `${cropStageInfo.progressPercent}% progress` : 'Sowing date needed'}
-                      </span>
-                    </div>
-
-                    <div className="p-3 bg-earth-50/70 rounded-xl border border-earth-200/70">
-                      <span className="text-[10px] text-gray-500 font-bold uppercase block">GPS Boundary</span>
-                      <strong className="text-base font-black text-gray-900 block mt-0.5">
-                        {workingBoundary.length >= 3 ? `${workingBoundary.length} pts` : '—'}
-                      </strong>
-                      <span className="text-[10px] text-gray-400">
-                        {workingBoundary.length >= 3 ? 'Active polygon' : 'Unmapped polygon'}
-                      </span>
-                    </div>
-
-                    <div className="p-3 bg-earth-50/70 rounded-xl border border-earth-200/70">
-                      <span className="text-[10px] text-gray-500 font-bold uppercase block">Field Issues</span>
-                      <strong className="text-base font-black text-gray-900 block mt-0.5">
-                        {activeFarmCases.length}
-                      </strong>
-                      <span className="text-[10px] text-gray-400">
-                        {activeFarmCases.length === 0 ? 'Optimal field state' : 'Active issues'}
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-6 px-4 bg-earth-50/50 rounded-xl border border-dashed border-earth-200">
-                    <BarChart2 className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                    <p className="text-xs font-semibold text-gray-700">No farm statistics available yet</p>
-                    <p className="text-[11px] text-gray-500 mt-0.5 max-w-sm mx-auto">
-                      Map field boundaries or register crop sowing details to compute dynamic parcel telemetry.
-                    </p>
-                  </div>
-                )}
-              </Card>
-            </div>
-
-            {/* Right Column: Farm Details, Dynamic Health Score, & Farm Activities */}
-            <div className="lg:col-span-5 space-y-4">
-              {/* Farm Details Card */}
-              <Card className="p-6">
-                <div className="flex items-center justify-between pb-4 border-b border-earth-100 mb-4">
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-900">{farm.name || farm.farm_name || 'Unnamed Farm'}</h2>
-                    <p className="text-xs text-gray-500">
-                      Registered to <strong className="text-gray-700 font-semibold">{user.name || user.email || 'Profile not set'}</strong>
-                      {user.name && user.email && <span className="text-gray-400"> ({user.email})</span>}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      icon={<Edit className="w-3.5 h-3.5" />}
-                      onClick={handleOpenEditModal}
-                      className="text-xs font-semibold"
-                    >
-                      Edit Details
-                    </Button>
-                    {farms.length >= 1 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (confirm(`Are you sure you want to delete ${farm.name || 'this farm parcel'}?`)) {
-                            deleteFarm(farm.id);
-                          }
-                        }}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete farm parcel"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    {/* Notice when farm location is not set */}
+                    {!hasCoordinates && (
+                      <div className="mb-3 p-3 bg-red-50 rounded-xl border border-red-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div className="flex items-center gap-2 text-xs text-red-900">
+                          <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                          <span>
+                            <strong>Farm location not set.</strong> Please search address or use your location.
+                          </span>
+                        </div>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          icon={<MapPin className="w-3.5 h-3.5" />}
+                          onClick={handleOpenEditModal}
+                          className="bg-red-600 hover:bg-red-700 text-white text-xs whitespace-nowrap shadow-2xs self-start sm:self-auto"
+                        >
+                          Set Farm Location
+                        </Button>
+                      </div>
                     )}
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  {/* Location */}
-                  <div className="p-3 rounded-xl bg-earth-50/70 border border-earth-200/70">
-                    <span className="text-[11px] text-gray-500 block uppercase font-bold">Location</span>
-                    <strong className="text-gray-900 text-xs sm:text-sm block truncate" title={farm.location?.address || farm.location_address}>
-                      {farm.location?.address || farm.location_address || <span className="text-gray-400 font-normal">📍 Location address not set</span>}
-                    </strong>
-                  </div>
+                    {/* SINGLE Primary Add Field Boundary Button & Notice when boundary is missing */}
+                    {hasCoordinates && !hasSavedBoundary && !isEditing && (
+                      <div className="mb-3 p-3.5 bg-[#F8F8F4] rounded-xl border border-[#E5E7EB] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="text-xs text-[#1F2937]">
+                          <strong className="block font-bold text-[#1F2937]">Field boundary not added yet.</strong>
+                          <span className="text-[#6B7280]">
+                            Add your field boundary to calculate more accurate field measurements.
+                          </span>
+                        </div>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          icon={<Plus className="w-3.5 h-3.5" />}
+                          onClick={handleStartAddBoundary}
+                          className="bg-[#166534] hover:bg-[#14532D] text-white text-xs font-bold shrink-0 shadow-2xs"
+                        >
+                          + Add Field Boundary
+                        </Button>
+                      </div>
+                    )}
 
-                  {/* Field Area */}
-                  <div className="p-3 rounded-xl bg-earth-50/70 border border-earth-200/70">
-                    <span className="text-[11px] text-gray-500 block uppercase font-bold">Field Area</span>
-                    <strong className="text-gray-900 text-xs sm:text-sm">
-                      {displayAcreage > 0 ? `${displayAcreage} ${farm.sizeUnit || 'acres'}` : <span className="text-gray-400 font-normal">Area not specified</span>}
-                    </strong>
-                  </div>
+                    {/* Boundary Mapped Info Row with Edit Boundary button */}
+                    {hasSavedBoundary && !isEditing && (
+                      <div className="mb-3 p-2.5 bg-[#F8F8F4] rounded-xl border border-[#E5E7EB] flex items-center justify-between gap-2 text-xs">
+                        <span className="text-[#6B7280]">
+                          Boundary mapped: <strong className="text-[#1F2937]">{displayAcreage} acres</strong> ({workingBoundary.length} GPS points)
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          icon={<Edit className="w-3.5 h-3.5 text-[#166534]" />}
+                          onClick={() => setIsEditing(true)}
+                          className="text-xs font-semibold hover:bg-[#EAF4EC] border-[#E5E7EB] text-[#1F2937] py-1"
+                        >
+                          Edit Boundary
+                        </Button>
+                      </div>
+                    )}
 
-                  {/* Crop & Variety */}
-                  <div className="p-3 rounded-xl bg-earth-50/70 border border-earth-200/70">
-                    <span className="text-[11px] text-gray-500 block uppercase font-bold">Planted Crop</span>
-                    <strong className="text-krishi-800 text-xs sm:text-sm">
-                      {farm.crop?.name || farm.crop_variety ? (
-                        <>
-                          {farm.crop?.name || farm.crop_variety}{' '}
-                          {farm.crop?.variety ? (
-                            <span className="text-gray-500 font-normal">({farm.crop.variety})</span>
-                          ) : null}
-                        </>
-                      ) : (
-                        <span className="text-gray-400 font-normal">No crop registered</span>
-                      )}
-                    </strong>
-                  </div>
+                    {/* Interactive Boundary Editing Toolbar */}
+                    {isEditing && (
+                      <div className="mb-3 p-2.5 bg-[#EAF4EC] rounded-xl border border-[#D1E7D6] flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <span className="font-semibold text-[#166534]">
+                          Boundary Editor: Drag corner pins on map to adjust shape
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            icon={<Plus className="w-3 h-3" />}
+                            onClick={handleAddCorner}
+                            className="text-xs py-1"
+                          >
+                            + Add Corner
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            icon={<RotateCcw className="w-3 h-3" />}
+                            onClick={handleResetBoundary}
+                            className="text-xs py-1"
+                          >
+                            Reset
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            icon={<X className="w-3 h-3" />}
+                            onClick={() => {
+                              handleResetBoundary();
+                              setIsEditing(false);
+                            }}
+                            className="text-xs py-1"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            icon={<Check className="w-3.5 h-3.5" />}
+                            onClick={handleSaveBoundary}
+                            disabled={isSaving}
+                            className="bg-[#166534] hover:bg-[#14532D] text-white text-xs py-1 shadow-2xs font-bold"
+                          >
+                            {isSaving ? 'Saving...' : 'Save Boundary'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
 
-                  {/* Dynamic Crop Stage */}
-                  <div className="p-3 rounded-xl bg-earth-50/70 border border-earth-200/70">
-                    <span className="text-[11px] text-gray-500 block uppercase font-bold">
-                      Dynamic Crop Stage
-                    </span>
-                    <div className="mt-0.5">
-                      <strong className="text-gray-900 text-xs sm:text-sm block">
-                        {cropStageInfo.status === 'valid' ? (
-                          cropStageInfo.stage
-                        ) : (
-                          <span className="text-gray-400 font-normal">Stage tracking unavailable (sowing date required)</span>
+                    {/* Satellite Map (Comfortable, slightly less dominant vertical height) */}
+                    <div className="relative rounded-2xl overflow-hidden border border-[#E5E7EB] shadow-inner h-[320px] sm:h-[380px] lg:h-[420px] bg-gray-900">
+                      <RealSatelliteMap
+                        latitude={farmLat}
+                        longitude={farmLon}
+                        fieldBoundary={workingBoundary.length >= 3 ? workingBoundary : undefined}
+                        layerMode="true_color"
+                        cropName={farm.crop?.name || 'Crop Field'}
+                        isEditingBoundary={isEditing}
+                        onBoundaryChange={handleBoundaryChange}
+                        userGpsLocation={userGpsLocation}
+                        showSearch={true}
+                        onSelectLocation={handleSelectLocation}
+                        onMyLocationClick={handleAcquireGps}
+                        isLocatingGps={isLocating}
+                      />
+                    </div>
+
+                    {/* Map Footer: Farm Location and Collapsible Technical Details */}
+                    <div className="mt-3.5 space-y-2">
+                      <div className="flex items-center justify-between text-xs text-[#6B7280] bg-[#F8F8F4] px-3.5 py-2.5 rounded-xl border border-[#E5E7EB]">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <MapPin className="w-3.5 h-3.5 text-[#166534] shrink-0" />
+                          <span className="truncate">
+                            Farm Location:{' '}
+                            <strong className="text-[#1F2937]">
+                              {farm.location?.address || farm.location?.district || farm.location?.state || 'Location not set'}
+                            </strong>
+                          </span>
+                        </div>
+                        <span className="font-semibold text-[#166534] shrink-0">
+                          {displayAcreage > 0 ? `${displayAcreage} ${farm.sizeUnit || 'acres'}` : ''}
+                        </span>
+                      </div>
+
+                      {/* Collapsible Technical Details */}
+                      <div className="pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
+                          className="flex items-center justify-between w-full px-1 text-xs font-semibold text-[#6B7280] hover:text-[#1F2937] transition-colors cursor-pointer"
+                        >
+                          <span>Technical Details</span>
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                              showTechnicalDetails ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </button>
+                        {showTechnicalDetails && (
+                          <div className="mt-2 p-3 bg-white rounded-xl border border-[#E5E7EB] text-xs text-[#6B7280] space-y-1.5 animate-in fade-in">
+                            <div>
+                              Coordinates:{' '}
+                              <strong className="text-[#1F2937] font-mono">
+                                {hasCoordinates && liveCentroid[0] !== 0
+                                  ? `${liveCentroid[0].toFixed(5)}°N, ${liveCentroid[1].toFixed(5)}°E`
+                                  : 'Not configured'}
+                              </strong>
+                            </div>
+                            <div>
+                              Boundary Vertices:{' '}
+                              <strong className="text-[#1F2937]">
+                                {workingBoundary.length >= 3
+                                  ? `${workingBoundary.length} GPS points mapped`
+                                  : 'Unmapped'}
+                              </strong>
+                            </div>
+                            <div>
+                              Calculated Area:{' '}
+                              <strong className="text-[#1F2937]">
+                                {displayAcreage > 0 ? `${displayAcreage} acres` : 'Not set'}
+                              </strong>
+                            </div>
+                          </div>
                         )}
-                      </strong>
-                      {cropStageInfo.status === 'valid' && (
-                        <div className="mt-1.5 space-y-1">
-                          <div className="flex items-center justify-between text-[10px] text-gray-500 font-medium">
-                            <span>{cropStageInfo.daysSinceSowing} DAS</span>
-                            <span>{cropStageInfo.progressPercent}%</span>
-                          </div>
-                          <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              className="bg-krishi-600 h-full rounded-full transition-all duration-500"
-                              style={{ width: `${cropStageInfo.progressPercent}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      )}
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Irrigation */}
-                  <div className="p-3 rounded-xl bg-earth-50/70 border border-earth-200/70">
-                    <span className="text-[11px] text-gray-500 block uppercase font-bold">Irrigation System</span>
-                    <strong className="text-gray-900 text-xs sm:text-sm">
-                      {farm.irrigationType || farm.irrigation_type ? (
-                        `${farm.irrigationType || farm.irrigation_type} System`
-                      ) : (
-                        <span className="text-gray-400 font-normal">Irrigation method not set</span>
-                      )}
-                    </strong>
-                  </div>
-
-                  {/* Soil Type */}
-                  <div className="p-3 rounded-xl bg-earth-50/70 border border-earth-200/70">
-                    <span className="text-[11px] text-gray-500 block uppercase font-bold">Soil Type</span>
-                    <strong className="text-gray-900 text-xs sm:text-sm">
-                      {farm.soil?.soilType || farm.soil_type || <span className="text-gray-400 font-normal">Soil test not conducted / type not set</span>}
-                    </strong>
-                  </div>
-
-                  {/* Sowing Date */}
-                  <div className="p-3 rounded-xl bg-earth-50/70 border border-earth-200/70">
-                    <span className="text-[11px] text-gray-500 block uppercase font-bold">Sowing Date</span>
-                    <strong className="text-gray-900 text-xs sm:text-sm">
-                      {farm.crop?.sowingDate || farm.sowing_date || <span className="text-gray-400 font-normal">Sowing date not set</span>}
-                    </strong>
-                    {cropStageInfo.status === 'valid' && (
-                      <span className="text-[11px] text-krishi-800 bg-krishi-50 px-2 py-0.5 rounded-md border border-krishi-200 font-medium block mt-1">
-                        {cropStageInfo.description}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Coordinates & Boundary Status */}
-                  <div className="p-3 rounded-xl bg-earth-50/70 border border-earth-200/70">
-                    <span className="text-[11px] text-gray-500 block uppercase font-bold">Coordinates & Boundary</span>
-                    <strong className="text-gray-900 text-xs sm:text-sm block">
-                      {hasCoordinates ? `${farmLat.toFixed(5)}°N, ${farmLon.toFixed(5)}°E` : <span className="text-gray-400 font-normal">Coordinates not configured</span>}
-                    </strong>
-                    <span className="text-[11px] text-gray-500 block mt-0.5">
-                      {workingBoundary.length >= 3 ? `${workingBoundary.length} GPS Polygon Vertices` : <span className="text-gray-400">Boundary not mapped</span>}
-                    </span>
-                  </div>
-                </div>
-              </Card>
-
-              {/* Dynamic Farm Health Index Card - No Hardcoded Numbers */}
-              <Card className="p-6 bg-gradient-to-br from-white to-krishi-50/30">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold text-gray-900 flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-krishi-600" />
-                    <span>Farm Health Index</span>
-                  </h3>
-                  {healthBreakdown.overallScore !== null ? (
-                    <span className="text-2xl font-black text-krishi-700">
-                      {healthBreakdown.overallScore}/100
-                    </span>
-                  ) : (
-                    <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full border border-gray-200">
-                      Data unavailable
-                    </span>
-                  )}
+                  </Card>
                 </div>
 
-                <div className="space-y-3.5 text-xs">
-                  {/* Soil Nutrient Balance */}
-                  <div>
-                    <div className="flex justify-between font-semibold mb-1">
-                      <span className="text-gray-700">Soil Nutrient Balance</span>
-                      <span className={healthBreakdown.soilNutrientScore.isAvailable ? 'text-krishi-800 font-bold' : 'text-gray-400'}>
-                        {healthBreakdown.soilNutrientScore.statusText}
-                      </span>
-                    </div>
-                    {healthBreakdown.soilNutrientScore.score !== null ? (
-                      <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-krishi-600 h-full rounded-full transition-all duration-500"
-                          style={{ width: `${healthBreakdown.soilNutrientScore.score}%` }}
-                        ></div>
+                {/* ================================================================= */}
+                {/* RIGHT COLUMN: Farm Profile, Today Status & Ask KRISHVYA            */}
+                {/* ================================================================= */}
+                <div className="lg:col-span-5 space-y-4">
+                  {/* 1. Farm Details Card (No email, no user clutter) */}
+                  <Card className="p-5 bg-white border-[#E5E7EB] shadow-xs">
+                    <div className="flex items-center justify-between pb-3 border-b border-[#E5E7EB] mb-3.5">
+                      <div>
+                        <h2 className="text-lg font-bold text-[#1F2937]">
+                          {farm.name || 'Your Farm Parcel'}
+                        </h2>
+                        <p className="text-xs text-[#6B7280]">
+                          Farm profile & crop specifications
+                        </p>
                       </div>
-                    ) : (
-                      <div className="w-full bg-gray-100 h-2 rounded-full border border-dashed border-gray-300"></div>
-                    )}
-                  </div>
-
-                  {/* Water / Moisture Status */}
-                  <div>
-                    <div className="flex justify-between font-semibold mb-1">
-                      <span className="text-gray-700">Water / Moisture Status</span>
-                      <span className={healthBreakdown.waterMoistureScore.isAvailable ? 'text-sky-800 font-bold' : 'text-gray-400'}>
-                        {healthBreakdown.waterMoistureScore.statusText}
-                      </span>
-                    </div>
-                    {healthBreakdown.waterMoistureScore.score !== null ? (
-                      <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-sky-600 h-full rounded-full transition-all duration-500"
-                          style={{ width: `${healthBreakdown.waterMoistureScore.score}%` }}
-                        ></div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          icon={<Edit className="w-3.5 h-3.5 text-[#166534]" />}
+                          onClick={handleOpenEditModal}
+                          className="text-xs font-semibold border-[#E5E7EB] hover:bg-[#EAF4EC] text-[#1F2937]"
+                        >
+                          Edit Details
+                        </Button>
+                        {farms.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`Are you sure you want to delete ${farm.name || 'this farm parcel'}?`)) {
+                                deleteFarm(farm.id);
+                              }
+                            }}
+                            className="p-1.5 text-[#DC2626] hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            title="Delete farm parcel"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
-                    ) : (
-                      <div className="w-full bg-gray-100 h-2 rounded-full border border-dashed border-gray-300"></div>
-                    )}
-                  </div>
-
-                  {/* Crop Canopy & NDVI */}
-                  <div>
-                    <div className="flex justify-between font-semibold mb-1">
-                      <span className="text-gray-700">Crop Canopy & NDVI</span>
-                      <span className={healthBreakdown.cropCanopyScore.isAvailable ? 'text-emerald-800 font-bold' : 'text-gray-400'}>
-                        {healthBreakdown.cropCanopyScore.statusText}
-                      </span>
                     </div>
-                    {healthBreakdown.cropCanopyScore.score !== null ? (
-                      <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-emerald-600 h-full rounded-full transition-all duration-500"
-                          style={{ width: `${healthBreakdown.cropCanopyScore.score}%` }}
-                        ></div>
+
+                    {/* 7 Clean Information Tiles */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                      {/* Location */}
+                      <div className="p-3 rounded-xl bg-[#F8F8F4] border border-[#E5E7EB]">
+                        <span className="text-[10px] text-[#6B7280] block uppercase font-bold">Location</span>
+                        <strong className="text-[#1F2937] text-xs block truncate mt-0.5" title={farm.location?.address}>
+                          {farm.location?.district || farm.location?.state || farm.location?.address || 'Not set'}
+                        </strong>
                       </div>
-                    ) : (
-                      <div className="w-full bg-gray-100 h-2 rounded-full border border-dashed border-gray-300"></div>
-                    )}
-                  </div>
 
-                  {/* Weather Resilience */}
-                  <div>
-                    <div className="flex justify-between font-semibold mb-1">
-                      <span className="text-gray-700">Weather Resilience</span>
-                      <span className={healthBreakdown.weatherResilienceScore.isAvailable ? 'text-amber-800 font-bold' : 'text-gray-400'}>
-                        {healthBreakdown.weatherResilienceScore.statusText}
-                      </span>
-                    </div>
-                    {healthBreakdown.weatherResilienceScore.score !== null ? (
-                      <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-amber-500 h-full rounded-full transition-all duration-500"
-                          style={{ width: `${healthBreakdown.weatherResilienceScore.score}%` }}
-                        ></div>
+                      {/* Area */}
+                      <div className="p-3 rounded-xl bg-[#F8F8F4] border border-[#E5E7EB]">
+                        <span className="text-[10px] text-[#6B7280] block uppercase font-bold">Area</span>
+                        <strong className="text-[#1F2937] text-xs block mt-0.5">
+                          {displayAcreage > 0
+                            ? `${displayAcreage} ${farm.sizeUnit || 'acres'}`
+                            : farm.size
+                            ? `${farm.size} ${farm.sizeUnit || 'acres'}`
+                            : 'Not set yet'}
+                        </strong>
                       </div>
-                    ) : (
-                      <div className="w-full bg-gray-100 h-2 rounded-full border border-dashed border-gray-300"></div>
-                    )}
-                  </div>
-                </div>
-              </Card>
 
-              {/* Dynamic Farm Activities Card */}
-              <Card className="p-6">
-                <div className="flex items-center justify-between pb-3 border-b border-earth-100 mb-4">
-                  <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-krishi-600" />
-                    <span>Farm Activities & Timeline</span>
-                  </h3>
-                  <span className="text-[11px] font-semibold text-gray-500 bg-earth-100 px-2 py-0.5 rounded-full">
-                    {allActivities.length} {allActivities.length === 1 ? 'record' : 'records'}
-                  </span>
-                </div>
-
-                {loadingActivities ? (
-                  <div className="text-center py-6 text-xs text-gray-500 font-medium">
-                    Loading farm timeline...
-                  </div>
-                ) : allActivities.length > 0 ? (
-                  <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-                    {allActivities.map((act) => (
-                      <div
-                        key={act.id}
-                        className="p-3 bg-earth-50/70 rounded-xl border border-earth-200/70 flex items-start gap-3"
-                      >
-                        <div className="p-1.5 bg-krishi-100 text-krishi-700 rounded-lg shrink-0 mt-0.5">
-                          {act.type === 'problem' ? (
-                            <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                          ) : act.type === 'sowing' ? (
-                            <Sprout className="w-3.5 h-3.5 text-emerald-600" />
+                      {/* Crop & Variety */}
+                      <div className="p-3 rounded-xl bg-[#F8F8F4] border border-[#E5E7EB]">
+                        <span className="text-[10px] text-[#6B7280] block uppercase font-bold">Crop</span>
+                        <strong className="text-[#166534] text-xs block mt-0.5">
+                          {farm.crop?.name || farm.crop_variety ? (
+                            <>
+                              {farm.crop?.name || farm.crop_variety}
+                              {farm.crop?.variety ? ` (${farm.crop.variety})` : ''}
+                            </>
                           ) : (
-                            <Clock className="w-3.5 h-3.5 text-krishi-600" />
+                            <span className="text-[#6B7280] font-normal">Not registered yet</span>
                           )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <h4 className="text-xs font-bold text-gray-900 truncate">{act.title}</h4>
-                            <span className="text-[10px] text-gray-400 shrink-0">
-                              {act.timestamp ? new Date(act.timestamp).toLocaleDateString() : ''}
-                            </span>
-                          </div>
-                          {act.description && (
-                            <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-2">
-                              {act.description}
-                            </p>
+                        </strong>
+                      </div>
+
+                      {/* Crop Stage (Farmer-friendly: Not set yet / Add sowing date to estimate crop stage) */}
+                      <div className="p-3 rounded-xl bg-[#F8F8F4] border border-[#E5E7EB]">
+                        <span className="text-[10px] text-[#6B7280] block uppercase font-bold">Crop Stage</span>
+                        <div className="mt-0.5">
+                          {farm.crop?.stage ? (
+                            <strong className="text-[#1F2937] text-xs block">{farm.crop.stage}</strong>
+                          ) : cropStageInfo.status === 'valid' ? (
+                            <div>
+                              <strong className="text-[#1F2937] text-xs block">{cropStageInfo.stage}</strong>
+                              <div className="w-full bg-[#E5E7EB] h-1.5 rounded-full overflow-hidden mt-1.5">
+                                <div
+                                  className="bg-[#166534] h-full rounded-full"
+                                  style={{ width: `${cropStageInfo.progressPercent}%` }}
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <strong className="text-[#6B7280] text-xs block font-normal">Not set yet</strong>
+                              <span className="text-[10px] text-[#6B7280] block mt-0.5">
+                                Add sowing date to estimate crop stage.
+                              </span>
+                            </div>
                           )}
                         </div>
                       </div>
-                    ))}
+
+                      {/* Irrigation */}
+                      <div className="p-3 rounded-xl bg-[#F8F8F4] border border-[#E5E7EB]">
+                        <span className="text-[10px] text-[#6B7280] block uppercase font-bold">Irrigation</span>
+                        <strong className="text-[#1F2937] text-xs block mt-0.5">
+                          {farm.irrigationType || farm.irrigation_type ? (
+                            `${farm.irrigationType || farm.irrigation_type} System`
+                          ) : (
+                            <span className="text-[#6B7280] font-normal">Not set yet</span>
+                          )}
+                        </strong>
+                      </div>
+
+                      {/* Soil */}
+                      <div className="p-3 rounded-xl bg-[#F8F8F4] border border-[#E5E7EB]">
+                        <span className="text-[10px] text-[#6B7280] block uppercase font-bold">Soil</span>
+                        <strong className="text-[#1F2937] text-xs block mt-0.5">
+                          {farm.soil?.soilType || farm.soil_type || (
+                            <span className="text-[#6B7280] font-normal">Not tested yet</span>
+                          )}
+                        </strong>
+                      </div>
+
+                      {/* Sowing Date (spans 2 columns) */}
+                      <div className="p-3 rounded-xl bg-[#F8F8F4] border border-[#E5E7EB] sm:col-span-2">
+                        <span className="text-[10px] text-[#6B7280] block uppercase font-bold">Sowing Date</span>
+                        <strong className="text-[#1F2937] text-xs block mt-0.5">
+                          {farm.crop?.sowingDate || farm.sowing_date || (
+                            <span className="text-[#6B7280] font-normal">Not set yet</span>
+                          )}
+                        </strong>
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* 2. Simple Farm Status: TODAY ON YOUR FARM (Real Data Only) */}
+                  <Card className="p-5 bg-white border-[#E5E7EB] shadow-xs">
+                    <div className="flex items-center justify-between pb-3 border-b border-[#E5E7EB] mb-3">
+                      <h3 className="font-bold text-[#1F2937] text-xs uppercase tracking-wider">
+                        TODAY ON YOUR FARM
+                      </h3>
+                      <span className="text-[10px] font-semibold text-[#166534] bg-[#EAF4EC] border border-[#D1E7D6] px-2 py-0.5 rounded-full">
+                        Real Farm Data
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5 text-xs">
+                      {/* Weather Pillar */}
+                      <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8F8F4] border border-[#E5E7EB]">
+                        <div className="flex items-center gap-2">
+                          <CloudSun className="w-4 h-4 text-[#2563EB]" />
+                          <span className="font-semibold text-[#1F2937]">Weather</span>
+                        </div>
+                        <div>
+                          {farm.weather?.temperature !== undefined ? (
+                            <span className="inline-flex items-center gap-1 font-semibold text-[#166534]">
+                              <span>🟢 Normal</span>
+                              <span className="text-[#6B7280] font-normal text-[11px]">
+                                ({farm.weather.temperature}°C • {farm.weather.condition || 'Clear'})
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="text-[#6B7280]">⚪ Data unavailable</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Crop Pillar */}
+                      <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8F8F4] border border-[#E5E7EB]">
+                        <div className="flex items-center gap-2">
+                          <Sprout className="w-4 h-4 text-[#166534]" />
+                          <span className="font-semibold text-[#1F2937]">Crop</span>
+                        </div>
+                        <div>
+                          {farm.crop?.name ? (
+                            activeFarmCases.length > 0 ? (
+                              <span className="text-[#D97706] font-semibold">🟡 Check Needed</span>
+                            ) : (
+                              <span className="text-[#166534] font-semibold">🟢 Good ({farm.crop.name})</span>
+                            )
+                          ) : (
+                            <span className="text-[#6B7280]">⚪ Data unavailable</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Soil Pillar */}
+                      <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8F8F4] border border-[#E5E7EB]">
+                        <div className="flex items-center gap-2">
+                          <Droplets className="w-4 h-4 text-[#2563EB]" />
+                          <span className="font-semibold text-[#1F2937]">Soil</span>
+                        </div>
+                        <div>
+                          {farm.soil?.moisturePercentage ? (
+                            <span className="text-[#166534] font-semibold">
+                              🟢 Good ({farm.soil.moisturePercentage}% Moisture)
+                            </span>
+                          ) : farm.soil?.soilType ? (
+                            <span className="text-[#166534] font-semibold">
+                              🟢 Good ({farm.soil.soilType})
+                            </span>
+                          ) : (
+                            <span className="text-[#6B7280]">⚪ Data unavailable</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Attention Pillar */}
+                      <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8F8F4] border border-[#E5E7EB]">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 text-[#D97706]" />
+                          <span className="font-semibold text-[#1F2937]">Attention</span>
+                        </div>
+                        <div>
+                          {activeFarmCases.length > 0 ? (
+                            <span className="text-[#D97706] font-semibold">
+                              🟡 {activeFarmCases.length} {activeFarmCases.length === 1 ? 'action' : 'actions'}
+                            </span>
+                          ) : (
+                            <span className="text-[#166534] font-semibold">🟢 All clear</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* 3. Primary Action: 🤖 Ask KRISHVYA */}
+                  <div className="p-4 rounded-2xl bg-[#EAF4EC] border border-[#D1E7D6] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                    <div className="space-y-0.5">
+                      <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#166534]">
+                        <Bot className="w-4 h-4 text-[#166534]" />
+                        <span>Ask KRISHVYA</span>
+                      </div>
+                      <p className="text-xs text-[#1F2937] font-medium">
+                        Ask questions about your {farm.crop?.name || 'crop'}, soil, or weather
+                      </p>
+                    </div>
+                    <Link
+                      to="/ai-advisor"
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#166534] hover:bg-[#14532D] text-white text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
+                    >
+                      <span>What should I do today?</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
                   </div>
-                ) : (
-                  <div className="text-center py-6 px-4 bg-earth-50/50 rounded-xl border border-dashed border-earth-200">
-                    <Clock className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                    <p className="text-xs font-semibold text-gray-700">No activities recorded yet</p>
-                    <p className="text-[11px] text-gray-500 mt-0.5 max-w-xs mx-auto">
-                      Boundary updates, farm edits, and agronomic events will appear here in chronological order.
-                    </p>
-                  </div>
-                )}
-              </Card>
-            </div>
-          </div>
+
+                  {/* 4. Compact Farm Activities Log */}
+                  <Card className="p-5 bg-white border-[#E5E7EB] shadow-xs">
+                    <div className="flex items-center justify-between pb-3 border-b border-[#E5E7EB] mb-3">
+                      <h3 className="font-bold text-[#1F2937] text-xs uppercase tracking-wider flex items-center gap-1.5">
+                        <Activity className="w-3.5 h-3.5 text-[#166534]" />
+                        <span>Recent Activities</span>
+                      </h3>
+                      <span className="text-[10px] font-semibold text-[#6B7280]">
+                        {allActivities.length} {allActivities.length === 1 ? 'record' : 'records'}
+                      </span>
+                    </div>
+
+                    {loadingActivities ? (
+                      <div className="text-center py-4 text-xs text-[#6B7280]">
+                        Loading timeline...
+                      </div>
+                    ) : allActivities.length > 0 ? (
+                      <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                        {allActivities.map((act) => (
+                          <div
+                            key={act.id}
+                            className="p-2.5 bg-[#F8F8F4] rounded-xl border border-[#E5E7EB] flex items-start gap-2.5 text-xs"
+                          >
+                            <div className="p-1 bg-[#EAF4EC] text-[#166534] rounded-lg shrink-0 mt-0.5">
+                              {act.type === 'problem' ? (
+                                <AlertCircle className="w-3 h-3 text-[#D97706]" />
+                              ) : act.type === 'sowing' ? (
+                                <Sprout className="w-3 h-3 text-[#166534]" />
+                              ) : (
+                                <Clock className="w-3 h-3 text-[#166534]" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-1">
+                                <h4 className="text-xs font-bold text-[#1F2937] truncate">{act.title}</h4>
+                                <span className="text-[10px] text-[#6B7280] shrink-0">
+                                  {act.timestamp ? new Date(act.timestamp).toLocaleDateString() : ''}
+                                </span>
+                              </div>
+                              {act.description && (
+                                <p className="text-[11px] text-[#6B7280] mt-0.5 line-clamp-1">
+                                  {act.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 px-3 bg-[#F8F8F4] rounded-xl border border-dashed border-[#E5E7EB]">
+                        <Clock className="w-6 h-6 text-[#6B7280] mx-auto mb-1 opacity-60" />
+                        <p className="text-xs font-semibold text-[#1F2937]">No activities recorded yet</p>
+                        <p className="text-[10px] text-[#6B7280] mt-0.5">
+                          Field events and boundary updates will appear here.
+                        </p>
+                      </div>
+                    )}
+                  </Card>
+                </div>
+              </div>
             </>
           )}
         </main>

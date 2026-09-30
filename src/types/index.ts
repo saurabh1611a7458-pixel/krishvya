@@ -270,4 +270,7 @@ export interface FarmAlert {
   targetRoute?: string;
   isRead: boolean;
   createdAt: string;
+  source?: string;
+  whatHappened?: string;
+  whatShouldIDo?: string;
 }

@@ -125,9 +125,14 @@ export function calculateMoistureScore(
     score = Math.max(20, Math.round(moisture * 2));
   }
 
+  let statusLabel = 'Good';
+  if (moisture < 30) statusLabel = 'Low';
+  else if (moisture < 40) statusLabel = 'Moderate';
+  else if (moisture > 75) statusLabel = 'High';
+
   return {
     score: Math.min(100, Math.max(0, score)),
-    statusText: `${score}% (${moisture}% volumetric)`,
+    statusText: `${moisture}% • ${statusLabel}`,
     isAvailable: true,
   };
 }

@@ -34,10 +34,10 @@ export function evaluateCropHealth(
   }
 
   const stageInfo = calculateDynamicCropStage(cropName, farm.crop?.variety, sowingDate);
-  if (stageInfo.status !== 'valid') {
+  if (stageInfo.status !== 'valid' && stageInfo.status !== 'harvest_ready') {
     return {
       isSufficient: false,
-      reason: 'Insufficient data: Sowing date is invalid or in the future.',
+      reason: stageInfo.description || 'Crop health satellite data isn\'t available yet.',
       healthScore: null,
       ndviScore: null,
       vegetationStatus: 'Telemetry Pending',
