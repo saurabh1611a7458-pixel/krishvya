@@ -74,7 +74,8 @@ export async function searchGlobalLocations(
   try {
     const backendUrl = `${getApiBaseUrl()}/geocoding/search?q=${encodeURIComponent(q)}`;
     const res = await fetch(backendUrl, { signal });
-    if (res.ok) {
+    const contentType = res.headers.get('content-type') || '';
+    if (res.ok && contentType.includes('application/json')) {
       const data = await res.json();
       if (data.success && Array.isArray(data.results) && data.results.length > 0) {
         return data.results;
@@ -157,9 +158,10 @@ export async function reverseGeocode(
 
   // 1. Try backend reverse geocoding proxy first
   try {
-    const backendUrl = `/api/geocoding/reverse?lat=${lat}&lon=${lon}`;
+    const backendUrl = `${getApiBaseUrl()}/geocoding/reverse?lat=${lat}&lon=${lon}`;
     const res = await fetch(backendUrl, { signal });
-    if (res.ok) {
+    const contentType = res.headers.get('content-type') || '';
+    if (res.ok && contentType.includes('application/json')) {
       const data = await res.json();
       if (data.success && data.data) {
         return data.data;

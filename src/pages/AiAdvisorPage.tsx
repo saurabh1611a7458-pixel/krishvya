@@ -245,14 +245,19 @@ export const AiAdvisorPage: React.FC = () => {
 
         const errorType = (res as any)?.errorType;
         const rawErr = String((res as any)?.error || (res as any)?.message || '');
-        const isNetworkFailure =
+        const isNetworkOrBackendOffline =
           rawErr === 'Load failed' ||
           rawErr === 'Failed to fetch' ||
+          rawErr.includes('The string did not match the expected pattern') ||
+          rawErr.includes('Unexpected token') ||
+          rawErr.includes('Backend API endpoint not found') ||
+          rawErr.includes('Backend API') ||
           rawErr.toLowerCase().includes('network') ||
-          rawErr.toLowerCase().includes('connection');
+          rawErr.toLowerCase().includes('connection') ||
+          rawErr.toLowerCase().includes('offline');
 
-        if (isNetworkFailure) {
-          replyText = 'Unable to reach the KRISHVYA AI Advisor service. Please ensure the backend API server is deployed and online, or verify your network connection.';
+        if (isNetworkOrBackendOffline) {
+          replyText = 'Unable to reach the KRISHVYA AI Advisor backend server. The API server is currently offline or has not yet been deployed. Please deploy the server or verify your connection.';
         } else if (errorType === 'API_KEY_MISSING' || rawErr.includes('not configured')) {
           replyText = 'AI service is not configured. Please ensure GEMINI_API_KEY is configured on the backend.';
         } else if (errorType === 'FARM_DATA_ERROR' || rawErr.includes('Farm data could not be loaded')) {

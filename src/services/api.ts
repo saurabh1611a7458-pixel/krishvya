@@ -87,6 +87,16 @@ class ApiService {
         headers,
       });
 
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        // Firebase Hosting SPA rewrite or web server returned HTML (e.g. index.html) instead of an API response
+        return {
+          success: false,
+          error: `Backend API endpoint not found or offline (${response.status})`,
+          message: `The endpoint '${cleanEndpoint}' returned non-JSON content (${contentType || 'none'}). Please ensure the KRISHVYA backend API server is deployed and running.`,
+        };
+      }
+
       const json = await response.json();
 
       if (!response.ok) {
@@ -104,6 +114,7 @@ class ApiService {
       return {
         success: false,
         error: (err as Error).message,
+        message: (err as Error).message,
       };
     }
   }
@@ -294,14 +305,19 @@ class ApiService {
     if (farmId) params.farmId = farmId;
     const query = new URLSearchParams(params);
 
-    // 1. Attempt to fetch from backend API proxy first (if server is running)
-    const backendRes = await this.request<LiveWeatherResponse>(`/weather/live?${query.toString()}`);
-    if (backendRes.success && backendRes.data) {
-      return backendRes;
+    // 1. In local dev or when a dedicated external backend URL is configured, try backend first
+    const baseUrl = getApiBaseUrl();
+    const hasExternalBackend = baseUrl && !baseUrl.startsWith('/') && !baseUrl.includes('localhost') === false ? false : Boolean(baseUrl && !baseUrl.startsWith('/'));
+
+    if (import.meta.env.DEV || hasExternalBackend) {
+      const backendRes = await this.request<LiveWeatherResponse>(`/weather/live?${query.toString()}`);
+      if (backendRes.success && backendRes.data) {
+        return backendRes;
+      }
     }
 
-    // 2. Resilient Direct Fallback: Direct Open-Meteo High-Resolution API
-    // Enables production weather on Firebase Hosting with zero mock data and zero API keys required
+    // 2. Resilient Direct Telemetry: Direct Open-Meteo High-Resolution API
+    // Enables instant production weather on Firebase Hosting with zero mock data and zero API keys required
     try {
       console.info(`[Weather Service] Direct Open-Meteo fetch for (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
       const directWeather = await fetchLiveWeatherDirect(latitude, longitude);
@@ -311,9 +327,11 @@ class ApiService {
       };
     } catch (directErr: any) {
       console.error('[Weather Service] Direct Open-Meteo fetch failed:', directErr);
+      const errMsg = directErr?.message || 'Weather data is temporarily unavailable.';
       return {
         success: false,
-        error: directErr?.message || backendRes.error || 'Weather data is temporarily unavailable.',
+        error: errMsg,
+        message: errMsg,
       };
     }
   }
