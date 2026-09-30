@@ -1,7 +1,20 @@
 // KRISHVYA Frontend API Client Layer
-// Bridges React state with Express API + Prisma SQLite Database, with resilient offline fallback
+// Bridges React state with Express API + Prisma SQLite Database, with resilient direct telemetry fallback
+import { fetchLiveWeatherDirect, LiveWeatherResponse } from './weatherService';
 
-const API_BASE_URL = 'http://localhost:5001/api';
+export const getApiBaseUrl = (): string => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim() !== '') {
+    return envUrl.trim().replace(/\/+$/, '');
+  }
+  // In Vite local development mode, connect to the local Node.js Express server
+  if (import.meta.env.DEV) {
+    return 'http://localhost:5001/api';
+  }
+  // In production builds, default to relative /api (enabling Firebase / Nginx / proxy rewrites)
+  return '/api';
+};
+
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -65,7 +78,11 @@ class ApiService {
         headers['x-clerk-user-id'] = this.currentClerkUserId;
       }
 
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const baseUrl = getApiBaseUrl();
+      const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+      const url = `${baseUrl}${cleanEndpoint}`;
+
+      const response = await fetch(url, {
         ...options,
         headers,
       });
@@ -266,13 +283,39 @@ class ApiService {
   }
 
   // Live Weather & Satellite Services (Open-Meteo & Sentinel-2)
-  async getLiveWeather(lat?: number, lon?: number, farmId?: string) {
-    const params: Record<string, string> = {};
-    if (typeof lat === 'number') params.lat = lat.toString();
-    if (typeof lon === 'number') params.lon = lon.toString();
+  async getLiveWeather(lat?: number, lon?: number, farmId?: string): Promise<ApiResponse<LiveWeatherResponse>> {
+    const latitude = typeof lat === 'number' && !isNaN(lat) && lat !== 0 ? lat : 18.5204;
+    const longitude = typeof lon === 'number' && !isNaN(lon) && lon !== 0 ? lon : 73.8567;
+
+    const params: Record<string, string> = {
+      lat: latitude.toString(),
+      lon: longitude.toString(),
+    };
     if (farmId) params.farmId = farmId;
     const query = new URLSearchParams(params);
-    return this.request<any>(`/weather/live?${query.toString()}`);
+
+    // 1. Attempt to fetch from backend API proxy first (if server is running)
+    const backendRes = await this.request<LiveWeatherResponse>(`/weather/live?${query.toString()}`);
+    if (backendRes.success && backendRes.data) {
+      return backendRes;
+    }
+
+    // 2. Resilient Direct Fallback: Direct Open-Meteo High-Resolution API
+    // Enables production weather on Firebase Hosting with zero mock data and zero API keys required
+    try {
+      console.info(`[Weather Service] Direct Open-Meteo fetch for (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
+      const directWeather = await fetchLiveWeatherDirect(latitude, longitude);
+      return {
+        success: true,
+        data: directWeather,
+      };
+    } catch (directErr: any) {
+      console.error('[Weather Service] Direct Open-Meteo fetch failed:', directErr);
+      return {
+        success: false,
+        error: directErr?.message || backendRes.error || 'Weather data is temporarily unavailable.',
+      };
+    }
   }
 
   async getLiveSatellite(lat?: number, lon?: number, farmId?: string) {

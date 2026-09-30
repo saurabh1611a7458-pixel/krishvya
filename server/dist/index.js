@@ -24,7 +24,24 @@ import { geocodingRoutes } from './routes/geocodingRoutes.js';
 const app = express();
 const PORT = process.env.PORT || 5001;
 // Middleware - allow up to 15MB for high-res leaf photographs
-app.use(cors());
+const allowedOrigins = [
+    'https://krishvya-74cb1.web.app',
+    'https://krishvya-74cb1.firebaseapp.com',
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+];
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.web.app') || origin.endsWith('.firebaseapp.com')) {
+            callback(null, true);
+        }
+        else {
+            callback(null, true);
+        }
+    },
+    credentials: true,
+}));
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 // Request logger

@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from './api';
 export interface GeocodingResult {
   id: string;
   displayName: string;
@@ -71,7 +72,7 @@ export async function searchGlobalLocations(
 
   // 2. Try backend geocoding proxy first (handles caching, User-Agent, and rate limiting)
   try {
-    const backendUrl = `/api/geocoding/search?q=${encodeURIComponent(q)}`;
+    const backendUrl = `${getApiBaseUrl()}/geocoding/search?q=${encodeURIComponent(q)}`;
     const res = await fetch(backendUrl, { signal });
     if (res.ok) {
       const data = await res.json();

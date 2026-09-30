@@ -244,14 +244,23 @@ export const AiAdvisorPage: React.FC = () => {
         console.error('⚠️ [AI Advisor Pipeline Error]', res);
 
         const errorType = (res as any)?.errorType;
-        if (errorType === 'API_KEY_MISSING' || (res as any)?.message?.includes('not configured')) {
-          replyText = 'AI service is not configured.';
-        } else if (errorType === 'FARM_DATA_ERROR' || (res as any)?.message?.includes('Farm data could not be loaded')) {
+        const rawErr = String((res as any)?.error || (res as any)?.message || '');
+        const isNetworkFailure =
+          rawErr === 'Load failed' ||
+          rawErr === 'Failed to fetch' ||
+          rawErr.toLowerCase().includes('network') ||
+          rawErr.toLowerCase().includes('connection');
+
+        if (isNetworkFailure) {
+          replyText = 'Unable to reach the KRISHVYA AI Advisor service. Please ensure the backend API server is deployed and online, or verify your network connection.';
+        } else if (errorType === 'API_KEY_MISSING' || rawErr.includes('not configured')) {
+          replyText = 'AI service is not configured. Please ensure GEMINI_API_KEY is configured on the backend.';
+        } else if (errorType === 'FARM_DATA_ERROR' || rawErr.includes('Farm data could not be loaded')) {
           replyText = 'Farm data could not be loaded.';
-        } else if (errorType === 'NO_FARM' || (res as any)?.message?.includes('Please add your farm first')) {
+        } else if (errorType === 'NO_FARM' || rawErr.includes('Please add your farm first')) {
           replyText = 'Please add your farm first.';
         } else {
-          replyText = (res as any)?.message || (res as any)?.error || 'AI service error occurred.';
+          replyText = rawErr || 'AI service error occurred.';
         }
       }
 
