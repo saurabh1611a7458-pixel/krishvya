@@ -22,7 +22,7 @@ import { weatherRoutes, satelliteRoutes } from './routes/weatherRoutes.js';
 import { tankRoutes } from './routes/tankRoutes.js';
 import { geocodingRoutes } from './routes/geocodingRoutes.js';
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = Number(process.env.PORT) || 8080;
 // Middleware - allow up to 15MB for high-res leaf photographs
 const allowedOrigins = [
     'https://krishvya-74cb1.web.app',
@@ -50,7 +50,7 @@ app.use((req, _res, next) => {
     next();
 });
 // Health check endpoint
-app.get('/api/health', (_req, res) => {
+const handleHealth = (_req, res) => {
     res.json({
         status: 'healthy',
         platform: 'KRISHVYA Smart Agriculture API',
@@ -61,7 +61,9 @@ app.get('/api/health', (_req, res) => {
         tankDosingService: 'Knapsack Pump & Chemical Compatibility Engine',
         timestamp: new Date().toISOString(),
     });
-});
+};
+app.get('/health', handleHealth);
+app.get('/api/health', handleHealth);
 // Mount Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/farm', farmRoutes);
@@ -84,7 +86,7 @@ app.use((err, _req, res, _next) => {
     });
 });
 // Start Server & Initialize Seed
-app.listen(PORT, async () => {
+app.listen(PORT, '0.0.0.0', async () => {
     console.log(`🌱 KRISHVYA API Server running on port ${PORT}`);
     console.log(`📡 Health Check: http://localhost:${PORT}/api/health`);
     await seedInitialData();
