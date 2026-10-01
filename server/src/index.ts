@@ -58,7 +58,7 @@ app.use((req, _res, next) => {
 });
 
 // Health check endpoint
-app.get('/api/health', (_req, res) => {
+const handleHealth = (_req: express.Request, res: express.Response) => {
   res.json({
     status: 'healthy',
     platform: 'KRISHVYA Smart Agriculture API',
@@ -69,7 +69,10 @@ app.get('/api/health', (_req, res) => {
     tankDosingService: 'Knapsack Pump & Chemical Compatibility Engine',
     timestamp: new Date().toISOString(),
   });
-});
+};
+
+app.get('/health', handleHealth);
+app.get('/api/health', handleHealth);
 
 // Mount Routes
 app.use('/api/auth', authRoutes);
